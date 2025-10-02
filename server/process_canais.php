@@ -116,18 +116,29 @@ function getStreamTypeByUrl($url) {
 }
 
 function getCategoryId($pdo, $categoryName, $categoryType) {
+    static $cache = [];
+    $cacheKey = strtolower($categoryType . '|' . $categoryName);
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+
     try {
         $stmt = $pdo->prepare("SELECT id FROM streams_categories WHERE category_name=:name LIMIT 1");
         $stmt->execute([':name'=>$categoryName]);
         $res = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($res) return $res['id'];
+        if ($res) {
+            $cache[$cacheKey] = $res['id'];
+            return $res['id'];
+        }
 
         $stmt = $pdo->prepare("
             INSERT INTO streams_categories (category_type, category_name, parent_id, cat_order, is_adult)
             VALUES (:type,:name,0,99,0)
         ");
         $stmt->execute([':type'=>$categoryType,':name'=>$categoryName]);
-        return $pdo->lastInsertId();
+        $lastId = $pdo->lastInsertId();
+        $cache[$cacheKey] = $lastId;
+        return $lastId;
     } catch (PDOException $e) {
         $msg = $e->getMessage();
         if (strpos($msg, 'Base table or view not found') !== false) {
