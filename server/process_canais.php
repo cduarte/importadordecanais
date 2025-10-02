@@ -156,97 +156,120 @@ $insertStmt = $pdo->prepare(
                 VALUES (:type, :category_id, :name, :source, :icon, 0,0,:direct_source,:added)'
 );
 
-foreach ($lines as $line) {
-    if (strpos($line,"#EXTINF:")===0){
-        preg_match('/tvg-name="(.*?)"/',$line,$nameMatch);
-        preg_match('/tvg-logo="(.*?)"/',$line,$logoMatch);
-        preg_match('/group-title="(.*?)"/',$line,$groupMatch);
-        $tvg_name = $nameMatch[1]??null;
-        $tvg_logo = $logoMatch[1]??null;
-        $group_title = $groupMatch[1]??null;
-        $parts = explode(',', $line,2);
-        $fallbackName = trim($parts[1]??'');
-        if($fallbackName!=='') $tvg_name=$fallbackName;
-        if(!$tvg_name) $tvg_name='Sem Nome';
-        if(!$group_title) $group_title='Outros';
-    } elseif (filter_var($line,FILTER_VALIDATE_URL)){
-        $url = trim($line);
-        $streamInfo = getStreamTypeByUrl($url);
-        $type=$streamInfo['type'];
+$status = null;
+$msg = '';
 
-        if ( $type != 1) continue;  // se for diferente de canal, não processa
+try {
+    $pdo->beginTransaction();
 
-        $categoryType=$streamInfo['category_type'];
-        $directSource=$streamInfo['direct_source'];
+    foreach ($lines as $line) {
+        if (strpos($line,"#EXTINF:")===0){
+            preg_match('/tvg-name="(.*?)"/',$line,$nameMatch);
+            preg_match('/tvg-logo="(.*?)"/',$line,$logoMatch);
+            preg_match('/group-title="(.*?)"/',$line,$groupMatch);
+            $tvg_name = $nameMatch[1]??null;
+            $tvg_logo = $logoMatch[1]??null;
+            $group_title = $groupMatch[1]??null;
+            $parts = explode(',', $line,2);
+            $fallbackName = trim($parts[1]??'');
+            if($fallbackName!=='') $tvg_name=$fallbackName;
+            if(!$tvg_name) $tvg_name='Sem Nome';
+            if(!$group_title) $group_title='Outros';
+        } elseif (filter_var($line,FILTER_VALIDATE_URL)){
+            $url = trim($line);
+            $streamInfo = getStreamTypeByUrl($url);
+            $type=$streamInfo['type'];
 
-        $category_id = getCategoryId($pdo,$group_title,$categoryType);
-        $stream_source = json_encode([$url], JSON_UNESCAPED_SLASHES);
-        $added = time();
+            if ( $type != 1) continue;  // se for diferente de canal, não processa
 
-        // Verifica duplicata
-        try {
-            $checkStmt->execute([':src'=>$stream_source]);
-            if ($checkStmt->fetch()) {
+            $categoryType=$streamInfo['category_type'];
+            $directSource=$streamInfo['direct_source'];
+
+            $category_id = getCategoryId($pdo,$group_title,$categoryType);
+            $stream_source = json_encode([$url], JSON_UNESCAPED_SLASHES);
+            $added = time();
+
+            // Verifica duplicata
+            try {
+                $checkStmt->execute([':src'=>$stream_source]);
+                if ($checkStmt->fetch()) {
+                    $checkStmt->closeCursor();
+                    $totalSkipped++;
+                    continue;
+                }
                 $checkStmt->closeCursor();
-                $totalSkipped++;
-                continue;
-            }
-            $checkStmt->closeCursor();
-        } catch (PDOException $e) {
-            $msg = $e->getMessage();
+            } catch (PDOException $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                $msg = $e->getMessage();
 
-            if (str_contains($msg, 'Base table or view not found')) {
-                die("❌ A tabela 'streams' não existe no banco de dados informado.");
-            } elseif (str_contains($msg, 'Unknown column')) {
-                die("❌ A tabela 'streams' existe, mas a coluna 'stream_source' não foi encontrada.");
-            } else {
-                die("❌ Erro ao verificar duplicata: " . $msg);
+                if (str_contains($msg, 'Base table or view not found')) {
+                    die("❌ A tabela 'streams' não existe no banco de dados informado.");
+                } elseif (str_contains($msg, 'Unknown column')) {
+                    die("❌ A tabela 'streams' existe, mas a coluna 'stream_source' não foi encontrada.");
+                } else {
+                    die("❌ Erro ao verificar duplicata: " . $msg);
+                }
             }
-        }
 
-        try {
-            $insertStmt->execute([
-                ':type'=>$type,
-                ':category_id'=>$category_id,
-                ':name'=>$tvg_name,
-                ':source'=>$stream_source,
-                ':icon'=>$tvg_logo,
-                ':direct_source'=>$directSource,
-                ':added'=>$added
-            ]);
-            $totalAdded++;
-        } catch (PDOException $e) {
-            $msg = $e->getMessage();
-            if (strpos($msg, 'Base table or view not found') !== false) {
-                echo "❌ A tabela 'streams' não existe no banco de dados.";
-            } elseif (strpos($msg, 'Unknown column') !== false) {
-                echo "❌ A tabela 'streams' existe, mas colunas necessárias não foram encontradas.";
-            } else {
-                echo "❌ Erro ao inserir stream: " . htmlspecialchars($msg);
+            try {
+                $insertStmt->execute([
+                    ':type'=>$type,
+                    ':category_id'=>$category_id,
+                    ':name'=>$tvg_name,
+                    ':source'=>$stream_source,
+                    ':icon'=>$tvg_logo,
+                    ':direct_source'=>$directSource,
+                    ':added'=>$added
+                ]);
+                $totalAdded++;
+            } catch (PDOException $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                $msg = $e->getMessage();
+                if (strpos($msg, 'Base table or view not found') !== false) {
+                    echo "❌ A tabela 'streams' não existe no banco de dados.";
+                } elseif (strpos($msg, 'Unknown column') !== false) {
+                    echo "❌ A tabela 'streams' existe, mas colunas necessárias não foram encontradas.";
+                } else {
+                    echo "❌ Erro ao inserir stream: " . htmlspecialchars($msg);
+                }
+                exit;
             }
-            exit;
         }
     }
+
+
+    $pdo->commit();
+
+    // ---------- REGISTRAR NA TABELA clientes_import ----------
+    $status = 'sucesso';
+    $msg = "Resultado:\n";
+    $msg .= "✅ Canais adicionados: $totalAdded\n";
+    $msg .= "⚠️ Canais ignorados (duplicados): $totalSkipped\n";
+    if ($totalErrors > 0) $msg .= "❌ Erros: $totalErrors\n";
+
+    $stmt = $adminPdo->prepare("
+        INSERT INTO clientes_import 
+        (db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token, last_import_status, last_import_message, last_import_at, import_count, client_ip, client_user_agent)
+        VALUES (:host,:dbname,:user,:pass,:m3u_url,:m3u_file,:token,:status,:msg,NOW(),:total,:ip,:ua)
+    ");
+    $stmt->execute([
+        ':host'=>$host,':dbname'=>$dbname,
+        ':user'=>$user,':pass'=>$pass,':m3u_url'=>$m3uUrl,':m3u_file'=>$fullPath,':token'=>$api_token,
+        ':status'=>$status,':msg'=>$msg,':total'=>$totalAdded,
+        ':ip'=>$_SERVER['REMOTE_ADDR'], ':ua'=>$_SERVER['HTTP_USER_AGENT'] ?? ''
+    ]);
+
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    $status = 'erro';
+    $msg = '❌ Erro ao processar canais: ' . $e->getMessage();
 }
-
-// ---------- REGISTRAR NA TABELA clientes_import ----------
-$status = 'sucesso';
-$msg = "Resultado:\n";
-$msg .= "✅ Canais adicionados: $totalAdded\n";
-$msg .= "⚠️ Canais ignorados (duplicados): $totalSkipped\n";
-if ($totalErrors > 0) $msg .= "❌ Erros: $totalErrors\n";
-
-$stmt = $adminPdo->prepare("
-    INSERT INTO clientes_import 
-    (db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token, last_import_status, last_import_message, last_import_at, import_count, client_ip, client_user_agent)
-    VALUES (:host,:dbname,:user,:pass,:m3u_url,:m3u_file,:token,:status,:msg,NOW(),:total,:ip,:ua)
-");
-$stmt->execute([
-    ':host'=>$host,':dbname'=>$dbname,
-    ':user'=>$user,':pass'=>$pass,':m3u_url'=>$m3uUrl,':m3u_file'=>$fullPath,':token'=>$api_token,
-    ':status'=>$status,':msg'=>$msg,':total'=>$totalAdded,
-    ':ip'=>$_SERVER['REMOTE_ADDR'], ':ua'=>$_SERVER['HTTP_USER_AGENT'] ?? ''
-]);
 
 echo htmlspecialchars($msg);
 
