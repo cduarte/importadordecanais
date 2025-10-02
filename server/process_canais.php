@@ -149,6 +149,13 @@ $tvg_name=$tvg_logo=$group_title=null;
 $totalAdded = 0;
 $totalSkipped = 0;
 $totalErrors = 0;
+
+$checkStmt = $pdo->prepare('SELECT id FROM streams WHERE stream_source=:src LIMIT 1');
+$insertStmt = $pdo->prepare(
+    'INSERT INTO streams (type, category_id, stream_display_name, stream_source, stream_icon, enable_transcode, read_native, direct_source, added)
+                VALUES (:type, :category_id, :name, :source, :icon, 0,0,:direct_source,:added)'
+);
+
 foreach ($lines as $line) {
     if (strpos($line,"#EXTINF:")===0){
         preg_match('/tvg-name="(.*?)"/',$line,$nameMatch);
@@ -178,15 +185,16 @@ foreach ($lines as $line) {
 
         // Verifica duplicata
         try {
-            $check = $pdo->prepare("SELECT id FROM streams WHERE stream_source=:src LIMIT 1");
-            $check->execute([':src'=>$stream_source]);
-            if ($check->fetch()) {
+            $checkStmt->execute([':src'=>$stream_source]);
+            if ($checkStmt->fetch()) {
+                $checkStmt->closeCursor();
                 $totalSkipped++;
                 continue;
             }
+            $checkStmt->closeCursor();
         } catch (PDOException $e) {
             $msg = $e->getMessage();
-        
+
             if (str_contains($msg, 'Base table or view not found')) {
                 die("❌ A tabela 'streams' não existe no banco de dados informado.");
             } elseif (str_contains($msg, 'Unknown column')) {
@@ -197,11 +205,7 @@ foreach ($lines as $line) {
         }
 
         try {
-            $stmt = $pdo->prepare("
-                INSERT INTO streams (type, category_id, stream_display_name, stream_source, stream_icon, enable_transcode, read_native, direct_source, added)
-                VALUES (:type, :category_id, :name, :source, :icon, 0,0,:direct_source,:added)
-            ");
-            $stmt->execute([
+            $insertStmt->execute([
                 ':type'=>$type,
                 ':category_id'=>$category_id,
                 ':name'=>$tvg_name,
