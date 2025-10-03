@@ -122,6 +122,7 @@ try {
 }
 
 const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
+const MOVIE_BATCH_SIZE = 500;
 
 function getStreamTypeByUrl(string $url): ?array {
     if (stripos($url, '/movie/') !== false) {
@@ -278,7 +279,79 @@ function determineTargetContainer(string $url): string {
     return 'mp4';
 }
 
-$lines = file($fullPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+function iterateExtinfPairs(string $path): Generator {
+    $handle = @fopen($path, 'rb');
+    if ($handle === false) {
+        throw new RuntimeException('❌ Não foi possível abrir o arquivo M3U para leitura.');
+    }
+
+    try {
+        $currentInfo = null;
+        while (($line = fgets($handle)) !== false) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            if (stripos($line, '#EXTINF:') === 0) {
+                $currentInfo = $line;
+                continue;
+            }
+
+            if ($line[0] === '#') {
+                continue;
+            }
+
+            if ($currentInfo === null) {
+                continue;
+            }
+
+            yield [$currentInfo, $line];
+            $currentInfo = null;
+        }
+    } finally {
+        fclose($handle);
+    }
+}
+
+function buildProgressMessage(int $added, int $skipped, int $errors, int $batchSize, string $context): string {
+    $header = match ($context) {
+        'final' => 'Resultado:',
+        'erro' => 'Resultado parcial:',
+        default => 'Progresso parcial:',
+    };
+
+    $lines = [$header];
+    $lines[] = "✅ Filmes adicionados: $added";
+    $lines[] = "⚠️ Filmes ignorados (duplicados): $skipped";
+    if ($errors > 0) {
+        $lines[] = "❌ Erros: $errors";
+    }
+
+    if ($context === 'final') {
+        $lines[] = "💾 Processamento em lotes de {$batchSize} registros concluído.";
+    } elseif ($context === 'erro') {
+        $lines[] = "💾 Lotes confirmados foram mantidos antes da interrupção.";
+    } else {
+        $lines[] = "💾 Lote confirmado e progresso salvo.";
+    }
+
+    return implode("\n", $lines);
+}
+
+function persistProgress(PDO $adminPdo, PDOStatement $stmt, int $logId, string $status, string $message, int $totalAdded): void {
+    try {
+        $stmt->execute([
+            ':status' => $status,
+            ':msg' => $message,
+            ':total' => $totalAdded,
+            ':id' => $logId,
+        ]);
+    } catch (PDOException $e) {
+        error_log('Falha ao atualizar progresso do importador: ' . $e->getMessage());
+    }
+}
+
 $tvg_name = $tvg_logo = $group_title = null;
 
 $totalAdded = 0;
@@ -306,28 +379,55 @@ $insertStmt = $pdo->prepare('
 
 $status = null;
 $msg = '';
+$importLogId = null;
+$progressUpdateStmt = null;
 
 try {
-    $pdo->beginTransaction();
+    $initialMessage = buildProgressMessage($totalAdded, $totalSkipped, $totalErrors, MOVIE_BATCH_SIZE, 'parcial');
+    $logInsertStmt = $adminPdo->prepare("
+        INSERT INTO clientes_import
+        (db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token, last_import_status, last_import_message, last_import_at, import_count, client_ip, client_user_agent)
+        VALUES (:host,:dbname,:user,:pass,:m3u_url,:m3u_file,:token,:status,:msg,NOW(),:total,:ip,:ua)
+    ");
+    $logInsertStmt->execute([
+        ':host' => $host,
+        ':dbname' => $dbname,
+        ':user' => $user,
+        ':pass' => $pass,
+        ':m3u_url' => $m3uUrl,
+        ':m3u_file' => $fullPath,
+        ':token' => $api_token,
+        ':status' => 'processando',
+        ':msg' => $initialMessage,
+        ':total' => $totalAdded,
+        ':ip' => $_SERVER['REMOTE_ADDR'],
+        ':ua' => $_SERVER['HTTP_USER_AGENT'] ?? ''
+    ]);
 
-    foreach ($lines as $line) {
-        if (strpos($line, '#EXTINF:') === 0) {
-            preg_match('/tvg-logo="(.*?)"/', $line, $logoMatch);
-            $tvg_logo = $logoMatch[1] ?? '';
+    $importLogId = (int) $adminPdo->lastInsertId();
+    $progressUpdateStmt = $adminPdo->prepare("
+        UPDATE clientes_import
+        SET last_import_status = :status, last_import_message = :msg, last_import_at = NOW(), import_count = :total
+        WHERE id = :id
+    ");
 
-            [$group_title, $tvg_name] = extractCategoryAndTitle($line);
-            if ($tvg_name === '') {
-                $parts = explode(',', $line, 2);
-                $tvg_name = trim($parts[1] ?? '');
-            }
+    $currentBatchCount = 0;
+
+    foreach (iterateExtinfPairs($fullPath) as [$infoLine, $urlLine]) {
+        preg_match('/tvg-logo="(.*?)"/', $infoLine, $logoMatch);
+        $tvg_logo = $logoMatch[1] ?? '';
+
+        [$group_title, $tvg_name] = extractCategoryAndTitle($infoLine);
+        if ($tvg_name === '') {
+            $parts = explode(',', $infoLine, 2);
+            $tvg_name = trim($parts[1] ?? '');
+        }
+
+        $url = trim($urlLine);
+        if (!filter_var($url, FILTER_VALIDATE_URL)) {
             continue;
         }
 
-        if (!filter_var($line, FILTER_VALIDATE_URL)) {
-            continue;
-        }
-
-        $url = trim($line);
         $streamInfo = getStreamTypeByUrl($url);
         if ($streamInfo === null) {
             continue;
@@ -353,18 +453,16 @@ try {
             }
             $checkStmt->closeCursor();
         } catch (PDOException $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
             $msg = $e->getMessage();
 
             if (str_contains($msg, 'Base table or view not found')) {
-                die("❌ A tabela 'streams' não existe no banco de dados informado.");
-            } elseif (str_contains($msg, 'Unknown column')) {
-                die("❌ A tabela 'streams' existe, mas a coluna 'stream_source' não foi encontrada.");
-            } else {
-                die("❌ Erro ao verificar duplicata: " . $msg);
+                throw new RuntimeException("❌ A tabela 'streams' não existe no banco de dados informado.", 0, $e);
             }
+            if (str_contains($msg, 'Unknown column')) {
+                throw new RuntimeException("❌ A tabela 'streams' existe, mas a coluna 'stream_source' não foi encontrada.", 0, $e);
+            }
+
+            throw new RuntimeException('❌ Erro ao verificar duplicata: ' . $msg, 0, $e);
         }
 
         $parsedTitle = parseMovieTitle($tvg_name ?? '');
@@ -381,6 +479,10 @@ try {
         $targetContainer = determineTargetContainer($url);
 
         try {
+            if (!$pdo->inTransaction()) {
+                $pdo->beginTransaction();
+            }
+
             $insertStmt->execute([
                 ':type' => $type,
                 ':category_id' => '[' . $categoryId . ']',
@@ -393,78 +495,76 @@ try {
                 ':target_container' => $targetContainer,
             ]);
             $totalAdded++;
+            $currentBatchCount++;
+
+            if ($currentBatchCount >= MOVIE_BATCH_SIZE) {
+                $pdo->commit();
+                $currentBatchCount = 0;
+
+                $progressMessage = buildProgressMessage($totalAdded, $totalSkipped, $totalErrors, MOVIE_BATCH_SIZE, 'parcial');
+                persistProgress($adminPdo, $progressUpdateStmt, $importLogId, 'processando', $progressMessage, $totalAdded);
+            }
         } catch (PDOException $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
             $msg = $e->getMessage();
             if (str_contains($msg, 'Base table or view not found')) {
-                die("❌ A tabela 'streams' não existe no banco de dados.");
-            } elseif (str_contains($msg, 'Unknown column')) {
-                die("❌ A tabela 'streams' existe, mas colunas necessárias não foram encontradas.");
-            } else {
-                die("❌ Erro ao inserir stream: " . htmlspecialchars($msg));
+                throw new RuntimeException("❌ A tabela 'streams' não existe no banco de dados.", 0, $e);
             }
+            if (str_contains($msg, 'Unknown column')) {
+                throw new RuntimeException("❌ A tabela 'streams' existe, mas colunas necessárias não foram encontradas.", 0, $e);
+            }
+
+            throw new RuntimeException('❌ Erro ao inserir stream: ' . htmlspecialchars($msg), 0, $e);
         }
     }
 
-    $pdo->commit();
-
-    $status = 'sucesso';
-    $msg = "Resultado:\n";
-    $msg .= "✅ Filmes adicionados: $totalAdded\n";
-    $msg .= "⚠️ Filmes ignorados (duplicados): $totalSkipped\n";
-    if ($totalErrors > 0) {
-        $msg .= "❌ Erros: $totalErrors\n";
+    if ($pdo->inTransaction()) {
+        $pdo->commit();
     }
 
-    $stmt = $adminPdo->prepare("
-        INSERT INTO clientes_import
-        (db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token, last_import_status, last_import_message, last_import_at, import_count, client_ip, client_user_agent)
-        VALUES (:host,:dbname,:user,:pass,:m3u_url,:m3u_file,:token,:status,:msg,NOW(),:total,:ip,:ua)
-    ");
-    $stmt->execute([
-        ':host' => $host,
-        ':dbname' => $dbname,
-        ':user' => $user,
-        ':pass' => $pass,
-        ':m3u_url' => $m3uUrl,
-        ':m3u_file' => $fullPath,
-        ':token' => $api_token,
-        ':status' => $status,
-        ':msg' => $msg,
-        ':total' => $totalAdded,
-        ':ip' => $_SERVER['REMOTE_ADDR'],
-        ':ua' => $_SERVER['HTTP_USER_AGENT'] ?? ''
-    ]);
+    $status = 'sucesso';
+    $msg = buildProgressMessage($totalAdded, $totalSkipped, $totalErrors, MOVIE_BATCH_SIZE, 'final');
+
+    persistProgress($adminPdo, $progressUpdateStmt, $importLogId, $status, $msg, $totalAdded);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
     $status = 'erro';
-    $msg = '❌ Erro ao processar filmes: ' . $e->getMessage();
+    $summary = buildProgressMessage($totalAdded, $totalSkipped, $totalErrors, MOVIE_BATCH_SIZE, 'erro');
+    $errorMessage = $e->getMessage();
+    if (!str_starts_with($errorMessage, '❌') && !str_starts_with($errorMessage, '⚠️')) {
+        $errorMessage = '❌ Erro ao processar filmes: ' . $errorMessage;
+    }
+    $msg = $summary . "\n" . $errorMessage;
 
-    try {
-        $stmt = $adminPdo->prepare("
-            INSERT INTO clientes_import
-            (db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token, last_import_status, last_import_message, client_ip, client_user_agent)
-            VALUES (:host,:dbname,:user,:pass,:m3u_url,:m3u_file,:token,:status,:msg,:ip,:ua)
-        ");
-        $stmt->execute([
-            ':host' => $host,
-            ':dbname' => $dbname,
-            ':user' => $user,
-            ':pass' => $pass,
-            ':m3u_url' => $m3uUrl,
-            ':m3u_file' => $fullPath,
-            ':token' => $api_token,
-            ':status' => $status,
-            ':msg' => $msg,
-            ':ip' => $_SERVER['REMOTE_ADDR'],
-            ':ua' => $_SERVER['HTTP_USER_AGENT'] ?? ''
-        ]);
-    } catch (PDOException $logException) {
-        echo "⚠️ Aviso: não foi possível registrar o erro no banco administrador: " . htmlspecialchars($logException->getMessage());
+    if (isset($importLogId) && $progressUpdateStmt instanceof PDOStatement) {
+        persistProgress($adminPdo, $progressUpdateStmt, $importLogId, $status, $msg, $totalAdded);
+    } else {
+        try {
+            $stmt = $adminPdo->prepare("
+                INSERT INTO clientes_import
+                (db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token, last_import_status, last_import_message, client_ip, client_user_agent)
+                VALUES (:host,:dbname,:user,:pass,:m3u_url,:m3u_file,:token,:status,:msg,:ip,:ua)
+            ");
+            $stmt->execute([
+                ':host' => $host,
+                ':dbname' => $dbname,
+                ':user' => $user,
+                ':pass' => $pass,
+                ':m3u_url' => $m3uUrl,
+                ':m3u_file' => $fullPath,
+                ':token' => $api_token,
+                ':status' => $status,
+                ':msg' => $msg,
+                ':ip' => $_SERVER['REMOTE_ADDR'],
+                ':ua' => $_SERVER['HTTP_USER_AGENT'] ?? ''
+            ]);
+        } catch (PDOException $logException) {
+            echo "⚠️ Aviso: não foi possível registrar o erro no banco administrador: " . htmlspecialchars($logException->getMessage());
+        }
     }
 }
 
