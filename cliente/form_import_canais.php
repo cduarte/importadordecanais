@@ -9,6 +9,20 @@ $actionUrl = 'http://45.67.136.10/~joaopedro/process_canais.php'; // idealmente 
 
 $response = null;
 
+$defaultTimeout = 360;
+$timeoutEnv = getenv('IMPORTADOR_CURL_TIMEOUT');
+$timeout = filter_var($timeoutEnv, FILTER_VALIDATE_INT, [
+    'options' => ['min_range' => 1],
+]) ?: $defaultTimeout;
+
+$defaultConnectTimeout = 30;
+$connectTimeoutEnv = getenv('IMPORTADOR_CURL_CONNECT_TIMEOUT');
+$connectTimeout = filter_var($connectTimeoutEnv, FILTER_VALIDATE_INT, [
+    'options' => ['min_range' => 0],
+]) ?: $defaultConnectTimeout;
+
+$maxWaitMinutes = max(1, (int) ceil($timeout / 60));
+
 // manter valores preenchidos após submit
 $host = $_POST['host'] ?? '';
 $dbname = $_POST['dbname'] ?? 'xui';
@@ -33,8 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $connectTimeout);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
 
         if (stripos($actionUrl, 'https://') === 0) {
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
@@ -166,6 +180,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .form-grid {
             display: grid;
             gap: 1.5rem;
+        }
+
+        .timeout-hint {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin: 1rem 0 0;
+            padding: 1rem 1.25rem;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid var(--primary-light);
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .timeout-hint i {
+            color: var(--primary-color);
+            margin-top: 0.2rem;
         }
 
         .form-group {
@@ -638,6 +671,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                required 
                                value="<?= htmlspecialchars($m3u_url) ?>"
                                placeholder="https://exemplo.com/lista.m3u">
+                    </div>
+
+                    <div class="timeout-hint">
+                        <i class="fas fa-hourglass-half"></i>
+                        <span>
+                            Importações de listas grandes podem levar até aproximadamente <?= $maxWaitMinutes ?>
+                            <?= $maxWaitMinutes === 1 ? 'minuto' : 'minutos' ?> (limite atual de <?= $timeout ?> segundos).
+                            Mantenha esta página aberta até o término para evitar interrupções.
+                        </span>
                     </div>
 
                     <button type="submit" class="submit-btn" id="submitBtn">
