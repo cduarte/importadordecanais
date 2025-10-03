@@ -5,8 +5,30 @@ set_time_limit(0);
 ini_set('upload_max_filesize', '20M');
 ini_set('post_max_size', '25M');
 
-$actionUrl = 'http://45.67.136.10/~joaopedro/process_filmes.php'; // idealmente https://
-$statusUrl = 'http://45.67.136.10/~joaopedro/process_filmes_status.php';
+$envBaseUrl = getenv('IMPORTADOR_API_BASE_URL') ?: ($_ENV['IMPORTADOR_API_BASE_URL'] ?? null);
+
+if ($envBaseUrl) {
+    $apiBaseUrl = rtrim($envBaseUrl, '/');
+} else {
+    $host = $_SERVER['HTTP_HOST']
+        ?? $_SERVER['SERVER_NAME']
+        ?? 'localhost';
+
+    $scheme = 'https';
+
+    if (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
+        $scheme = 'https';
+    } elseif (!empty($_SERVER['REQUEST_SCHEME'])) {
+        $scheme = strtolower((string) $_SERVER['REQUEST_SCHEME']) === 'https' ? 'https' : 'http';
+    } elseif (!empty($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 80) {
+        $scheme = 'http';
+    }
+
+    $apiBaseUrl = sprintf('%s://%s/server', $scheme, $host);
+}
+
+$actionUrl = $apiBaseUrl . '/process_filmes.php';
+$statusUrl = $apiBaseUrl . '/process_filmes_status.php';
 
 // manter valores preenchidos após submit
 $host = $_POST['host'] ?? '';
@@ -747,6 +769,7 @@ $m3u_url = $_POST['m3u_url'] ?? '';
     </div>
 
     <script>
+        const API_BASE_URL = <?= json_encode($apiBaseUrl, JSON_UNESCAPED_SLASHES) ?>;
         const ACTION_URL = <?= json_encode($actionUrl, JSON_UNESCAPED_SLASHES) ?>;
         const STATUS_URL = <?= json_encode($statusUrl, JSON_UNESCAPED_SLASHES) ?>;
         const POLL_INTERVAL_MS = 5000;
