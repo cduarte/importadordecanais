@@ -769,270 +769,41 @@ $m3u_url = $_POST['m3u_url'] ?? '';
         </section>
     </div>
 
+    <script src="assets/importer.js"></script>
     <script>
-        const API_BASE_URL = <?= json_encode($apiBaseUrl, JSON_UNESCAPED_SLASHES) ?>;
         const ACTION_URL = <?= json_encode($actionUrl, JSON_UNESCAPED_SLASHES) ?>;
         const STATUS_URL = <?= json_encode($statusUrl, JSON_UNESCAPED_SLASHES) ?>;
-        const POLL_INTERVAL_MS = 5000;
-
         const form = document.getElementById('importForm');
         const submitBtn = document.getElementById('submitBtn');
-        const submitBtnOriginal = submitBtn.innerHTML;
-
-        const responseBox = document.getElementById('responseBox');
-        const responseHeader = document.getElementById('responseHeader');
-        const responseIcon = document.getElementById('responseIcon');
-        const responseTitle = document.getElementById('responseTitle');
-        const responseMessage = document.getElementById('responseMessage');
-        const progressWrapper = document.getElementById('progressWrapper');
-        const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
-
-        let pollingHandle = null;
-        let currentJobId = null;
-
-        const responseStates = {
-            queued: { headerClass: 'warning', icon: 'fa-clock', title: 'Job na fila' },
-            running: { headerClass: 'warning', icon: 'fa-spinner fa-spin', title: 'Processando filmes' },
-            done: { headerClass: 'success', icon: 'fa-circle-check', title: 'Importação concluída' },
-            failed: { headerClass: '', icon: 'fa-triangle-exclamation', title: 'Falha na importação' },
-            error: { headerClass: '', icon: 'fa-triangle-exclamation', title: 'Erro' }
-        };
-
-        function showResponseBox() {
-            responseBox.classList.remove('hidden');
-        }
-
-        function resetProgress() {
-            progressWrapper.classList.add('hidden');
-            progressBar.style.width = '0%';
-            progressText.textContent = '0%';
-        }
-
-        function updateProgress(value) {
-            if (typeof value !== 'number' || Number.isNaN(value)) {
-                progressWrapper.classList.add('hidden');
-                return;
-            }
-
-            const safeValue = Math.min(100, Math.max(0, Math.round(value)));
-            progressWrapper.classList.remove('hidden');
-            progressBar.style.width = `${safeValue}%`;
-            progressText.textContent = `${safeValue}%`;
-        }
-
-        function updateMessage(message) {
-            responseMessage.innerHTML = '';
-            if (!message) {
-                return;
-            }
-
-            message.split('\n').forEach(line => {
-                const trimmed = line.trim();
-                if (!trimmed) {
-                    return;
-                }
-                const div = document.createElement('div');
-                div.className = 'message-line';
-                div.textContent = trimmed;
-                responseMessage.appendChild(div);
-            });
-        }
-
-        function setHeader(stateKey, customTitle = null) {
-            const state = responseStates[stateKey] ?? responseStates.error;
-            responseHeader.classList.remove('success', 'warning');
-            if (state.headerClass) {
-                responseHeader.classList.add(state.headerClass);
-            }
-            responseIcon.className = `fas ${state.icon}`;
-            responseTitle.textContent = customTitle ?? state.title;
-            showResponseBox();
-        }
-
-        function setLoadingState() {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<div class="loading"></div> A processar...';
-        }
-
-        function restoreButton() {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = submitBtnOriginal;
-        }
-
-        function handleError(message) {
-            stopPolling();
-            setHeader('error', 'Erro na importação');
-            updateMessage(message);
-            resetProgress();
-            restoreButton();
-            showResponseBox();
-        }
-
-        async function submitForm(event) {
-            event.preventDefault();
-
-            if (!form.reportValidity()) {
-                return;
-            }
-
-            stopPolling();
-            currentJobId = null;
-            setHeader('queued', 'Preparando importação');
-            updateMessage('Aguarde, estamos validando as credenciais...');
-            resetProgress();
-            showResponseBox();
-            setLoadingState();
-
-            const formData = new FormData(form);
-
-            try {
-                const response = await fetch(ACTION_URL, {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                const data = await response.json().catch(() => null);
-
-                if (!response.ok || !data) {
-                    const errorMsg = data && data.error ? data.error : `Falha na requisição (${response.status})`;
-                    handleError(errorMsg);
-                    return;
-                }
-
-                if (data.error) {
-                    handleError(data.error);
-                    return;
-                }
-
-                if (!data.job_id) {
-                    handleError('Resposta inesperada do servidor.');
-                    return;
-                }
-
-                currentJobId = data.job_id;
-                setHeader('queued', 'Job na fila');
-                updateMessage(`Job #${currentJobId} criado com sucesso. O processamento será iniciado em breve.`);
-                updateProgress(0);
-                startPolling(currentJobId);
-            } catch (error) {
-                handleError(`Erro de rede ao contactar o servidor: ${error.message}`);
-            }
-        }
-
-        async function fetchStatus(jobId) {
-            try {
-                const response = await fetch(`${STATUS_URL}?job_id=${encodeURIComponent(jobId)}`, {
-                    cache: 'no-store',
-                });
-
-                const data = await response.json().catch(() => null);
-
-                if (!response.ok || !data) {
-                    const errorMsg = data && data.error ? data.error : `Falha ao obter status (${response.status})`;
-                    handleError(errorMsg);
-                    return;
-                }
-
-                if (data.error) {
-                    handleError(data.error);
-                    return;
-                }
-
-                renderStatus(data);
-            } catch (error) {
-                updateMessage(`Aviso: não foi possível atualizar o status no momento (${error.message}).`);
-            }
-        }
-
-        function renderStatus(data) {
-            const status = data.status;
-            const message = data.message ?? '';
-            const progress = typeof data.progress === 'number' ? data.progress : null;
-            const totals = data.totals || {};
-
-            updateProgress(progress);
-
-            const totalsLines = [];
-            ['added', 'skipped', 'errors'].forEach(key => {
-                if (typeof totals[key] === 'number') {
-                    const labels = {
-                        added: 'Filmes adicionados',
-                        skipped: 'Filmes ignorados',
-                        errors: 'Erros',
-                    };
-
-                    const label = labels[key];
-                    if (!label) {
-                        return;
-                    }
-
-                    const messageAlreadyHasLabel = typeof message === 'string' && message.includes(label);
-                    if (!messageAlreadyHasLabel) {
-                        totalsLines.push(`${label}: ${totals[key]}`);
-                    }
-                }
-            });
-
-            const combinedMessage = (() => {
-                const extra = totalsLines.length ? totalsLines.join('\n') : '';
-                if (message && extra) {
-                    return `${message}\n${extra}`;
-                }
-                return message || extra;
-            })();
-
-            if (status === 'queued') {
-                setHeader('queued');
-                updateMessage(combinedMessage || 'Job aguardando processamento...');
-                return;
-            }
-
-            if (status === 'running') {
-                setHeader('running');
-                updateMessage(combinedMessage || 'Processando filmes...');
-                return;
-            }
-
-            if (status === 'done') {
-                setHeader('done');
-                updateMessage(combinedMessage || 'Importação finalizada.');
-                updateProgress(100);
-                stopPolling();
-                restoreButton();
-                return;
-            }
-
-            if (status === 'failed') {
-                setHeader('failed');
-                updateMessage(combinedMessage || 'Ocorreu um erro durante o processamento.');
-                updateProgress(100);
-                stopPolling();
-                restoreButton();
-                return;
-            }
-
-            setHeader('error');
-            updateMessage(combinedMessage || 'Status desconhecido retornado pelo servidor.');
-            stopPolling();
-            restoreButton();
-        }
-
-        function startPolling(jobId) {
-            stopPolling();
-            showResponseBox();
-            fetchStatus(jobId);
-            pollingHandle = setInterval(() => fetchStatus(jobId), POLL_INTERVAL_MS);
-        }
-
-        function stopPolling() {
-            if (pollingHandle) {
-                clearInterval(pollingHandle);
-                pollingHandle = null;
-            }
-        }
-
-        form.addEventListener('submit', submitForm);
+        createImportJobController({
+            form,
+            submitButton: submitBtn,
+            elements: {
+                responseBox: document.getElementById('responseBox'),
+                responseHeader: document.getElementById('responseHeader'),
+                responseIcon: document.getElementById('responseIcon'),
+                responseTitle: document.getElementById('responseTitle'),
+                responseMessage: document.getElementById('responseMessage'),
+                progressWrapper: document.getElementById('progressWrapper'),
+                progressBar: document.getElementById('progressBar'),
+                progressText: document.getElementById('progressText'),
+            },
+            urls: {
+                action: ACTION_URL,
+                status: STATUS_URL,
+            },
+            stateTitles: {
+                running: 'Processando filmes',
+            },
+            messages: {
+                running: 'Processando filmes...',
+            },
+            totalsLabels: {
+                added: 'Filmes adicionados',
+                skipped: 'Filmes ignorados',
+                errors: 'Erros',
+            },
+        });
 
         // Funcionalidade FAQ melhorada
         function toggleFaq(element) {
