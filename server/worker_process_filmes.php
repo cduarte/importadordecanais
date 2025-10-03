@@ -432,7 +432,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $totalErrors = $confirmedErrors;
     $lastPersistedCheckpoint = null;
 
-    $checkStmt = $pdo->prepare('SELECT id FROM streams WHERE stream_source = :src LIMIT 1');
+    $checkStmt = $pdo->prepare('SELECT stream_id FROM stream_source_hashes WHERE stream_source_hash = :hash LIMIT 1');
     $insertStmt = $pdo->prepare('
         INSERT INTO streams (
             type, category_id, stream_display_name, stream_source, stream_icon, year,
@@ -450,6 +450,11 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             0, 0, 90, 0, "{}", ""
         )
     ');
+    $hashInsertStmt = $pdo->prepare('
+        INSERT INTO stream_source_hashes (stream_id, stream_source_hash)
+        VALUES (:stream_id, :hash)
+    ');
+    $deleteStreamStmt = $pdo->prepare('DELETE FROM streams WHERE id = :id LIMIT 1');
 
     try {
         $inTransaction = false;
@@ -464,15 +469,16 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             }
 
             $url = trim($entry['url']);
-            
+
             $categoryType = $streamInfo['category_type'];
             $directSource = $streamInfo['direct_source'];
             $categoryId = getCategoryId($pdo, $entry['group_title'] ?? 'Filmes', $categoryType);
             $streamSource = json_encode([$url], JSON_UNESCAPED_SLASHES);
+            $streamSourceHash = hash('sha256', $streamSource);
             $added = time();
 
             try {
-                $checkStmt->execute([':src' => $streamSource]);
+                $checkStmt->execute([':hash' => $streamSourceHash]);
                 if ($checkStmt->fetch()) {
                     $checkStmt->closeCursor();
                     $totalSkipped++;
@@ -547,6 +553,22 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                     ':added' => $added,
                     ':target_container' => $targetContainer,
                 ]);
+
+                $streamId = (int) $pdo->lastInsertId();
+                if ($streamId <= 0) {
+                    throw new RuntimeException('Falha ao obter o ID do stream recém inserido.');
+                }
+
+                try {
+                    $hashInsertStmt->execute([
+                        ':stream_id' => $streamId,
+                        ':hash' => $streamSourceHash,
+                    ]);
+                } catch (PDOException $hashException) {
+                    $deleteStreamStmt->execute([':id' => $streamId]);
+                    throw new RuntimeException('Erro ao registrar hash do stream: ' . $hashException->getMessage());
+                }
+
                 $totalAdded++;
             } catch (PDOException $e) {
                 $errorMessage = $e->getMessage();
