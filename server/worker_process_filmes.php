@@ -5,6 +5,7 @@ declare(strict_types=1);
 set_time_limit(0);
 
 const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
+const BATCH_SIZE = 100;
 
 $timeoutEnv = getenv('IMPORTADOR_M3U_TIMEOUT');
 $streamTimeout = ($timeoutEnv !== false && is_numeric($timeoutEnv) && (int) $timeoutEnv > 0)
@@ -390,7 +391,8 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     ');
 
     try {
-        $pdo->beginTransaction();
+        $inTransaction = false;
+        $batchInsertions = 0;
 
         foreach (extractEntries($fullPath) as $entry) {
             $streamInfo = getStreamTypeByUrl($entry['url']);
@@ -442,6 +444,12 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
             $targetContainer = determineTargetContainer($url);
 
+            if (!$inTransaction) {
+                $pdo->beginTransaction();
+                $inTransaction = true;
+                $batchInsertions = 0;
+            }
+
             try {
                 $insertStmt->execute([
                     ':type' => $streamInfo['type'],
@@ -467,6 +475,15 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             }
 
             $processedEntries++;
+            $batchInsertions++;
+
+            if ($batchInsertions >= BATCH_SIZE) {
+                if ($pdo->inTransaction()) {
+                    $pdo->commit();
+                }
+                $inTransaction = false;
+                $batchInsertions = 0;
+            }
 
             if ($totalEntries > 0) {
                 $progress = 10 + (int) floor(($processedEntries / $totalEntries) * 85);
@@ -479,8 +496,9 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 ]);
             }
         }
-
-        $pdo->commit();
+        if ($inTransaction && $pdo->inTransaction()) {
+            $pdo->commit();
+        }
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
