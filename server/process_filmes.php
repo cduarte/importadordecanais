@@ -103,6 +103,35 @@ $clientIp = $_SERVER['REMOTE_ADDR'] ?? null;
 $clientUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
 
 try {
+    $checkStmt = $adminPdo->prepare('
+        SELECT id
+        FROM clientes_import_jobs
+        WHERE db_host = :host
+            AND db_name = :dbname
+            AND db_user = :user
+            AND m3u_url = :m3u_url
+            AND status = :status
+        ORDER BY id DESC
+        LIMIT 1
+    ');
+    $checkStmt->execute([
+        ':host' => $host,
+        ':dbname' => $dbname,
+        ':user' => $user,
+        ':m3u_url' => $m3uUrl,
+        ':status' => 'running',
+    ]);
+    $runningJob = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($runningJob) {
+        sendJsonResponse([
+            'error' => sprintf(
+                'Já existe um processamento em andamento (#%d) para esta lista e base de dados. Aguarde a conclusão antes de enviar novamente.',
+                (int) $runningJob['id']
+            ),
+        ], 409);
+    }
+
     $stmt = $adminPdo->prepare('
         INSERT INTO clientes_import_jobs (
             db_host,
