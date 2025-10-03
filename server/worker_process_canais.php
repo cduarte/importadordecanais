@@ -268,7 +268,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     updateJob($adminPdo, $jobId, [
         'm3u_file_path' => $fullPath,
         'progress' => CHANNEL_PROGRESS_DOWNLOAD,
-        'message' => 'Lista M3U baixada com sucesso. Conectando ao banco de destino...'
+        'message' => 'Lista M3U verfificada. Conectando ao banco de destino...'
     ]);
 
     try {
