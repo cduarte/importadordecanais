@@ -112,6 +112,16 @@ https://45.67.136.10/~joaopedro/process_filmes.php
 
 Algumas listas M3U podem demorar vários minutos para serem transferidas. O backend respeita a variável de ambiente `IMPORTADOR_M3U_TIMEOUT` (em segundos) para definir o tempo limite utilizado ao baixar a lista e para o `default_socket_timeout` do PHP. Caso não seja definido, o sistema utiliza 600 segundos (10 minutos). Ajuste esse valor conforme a velocidade do servidor de origem e o tamanho da lista.
 
+### 🖥️ Selecionando o binário PHP CLI
+
+Quando o `process_canais.php` ou `process_filmes.php` são executados a partir de um ambiente que não seja CLI (por exemplo, `php-fpm`), os scripts precisam chamar os workers em background com um binário de linha de comando. Caso o PHP detecte que está rodando fora do CLI, ele tentará utilizar automaticamente:
+
+1. O caminho definido na variável de ambiente `IMPORTADOR_PHP_CLI` (se configurada).
+2. O binário `php` dentro de `PHP_BINDIR`.
+3. O comando `php` disponível no `PATH` do sistema.
+
+Configure `IMPORTADOR_PHP_CLI` para forçar o uso de uma versão específica do PHP CLI quando necessário.
+
 ---
 
 💡 Ideal para administradores que desejam integrar listas M3U ao **XUI.ONE** de forma simples, segura e organizada.
