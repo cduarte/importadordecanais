@@ -83,6 +83,46 @@ try {
 } catch (PDOException $e) {
     $msg = $e->getMessage();
 
+    try {
+        $errorStmt = $adminPdo->prepare('
+            INSERT INTO clientes_import_jobs (
+                job_type,
+                db_host,
+                db_name,
+                db_user,
+                db_password,
+                m3u_url,
+                status,
+                progress,
+                message
+            ) VALUES (
+                :job_type,
+                :host,
+                :dbname,
+                :user,
+                :pass,
+                :m3u_url,
+                :status,
+                :progress,
+                :message
+            )
+        ');
+
+        $errorStmt->execute([
+            ':job_type' => 'movies',
+            ':host' => $host,
+            ':dbname' => $dbname,
+            ':user' => $user,
+            ':pass' => $pass,
+            ':m3u_url' => $m3uUrl,
+            ':status' => 'failed',
+            ':progress' => 0,
+            ':message' => 'Falha ao validar conexão: ' . $msg,
+        ]);
+    } catch (PDOException $logException) {
+        // Ignorado para não sobrescrever a resposta original ao usuário.
+    }
+
     if (str_contains($msg, 'Access denied')) {
         sendJsonResponse(['error' => 'Usuário ou senha incorretos para o banco de dados informado.'], 401);
     }
