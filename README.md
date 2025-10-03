@@ -37,15 +37,76 @@ Cada worker valida o tipo do job antes de iniciar o processamento.
 - Banco de dados **MySQL/MariaDB**
 - Acesso ao **XUI.ONE**
 
-### 🌐 Configurando o endpoint da API
+## 🌐 Importador API Proxy
 
-O formulário de importação de filmes envia os dados para os scripts PHP localizados na pasta `server`. Para controlar qual domínio será usado nas requisições, defina a variável de ambiente `IMPORTADOR_API_BASE_URL` apontando para o endereço público em que o backend está hospedado (por exemplo, `https://importador.seudominio.com/server`).
+Este projeto implementa um **proxy em PHP** (`cliente/api_proxy.php`) que redireciona requisições locais para uma **API remota**. Ele serve para encapsular chamadas aos endpoints de importação sem expor diretamente a URL do servidor de destino.
 
-- **Ambiente de produção:** defina `IMPORTADOR_API_BASE_URL` para o domínio HTTPS onde os scripts `process_filmes.php` e `process_filmes_status.php` estão disponíveis.
-- **Ambiente de desenvolvimento:** se a variável não estiver configurada, o proxy executa diretamente os scripts da pasta `server` por meio do próprio PHP. Caso o arquivo não possa ser localizado, o sistema tenta descobrir automaticamente o domínio a partir da requisição atual e assume o caminho `/server`.
+### 🚀 Como funciona
 
-Certifique-se de expor os scripts do diretório `server` no domínio desejado ou ajuste o valor da variável de ambiente para corres
-ponder à estrutura do seu servidor.
+- O arquivo principal é `api_proxy.php`.
+- Você chama a URL local passando o parâmetro `endpoint`.
+- O proxy lê a variável `IMPORTADOR_API_BASE_URL` (definida em um arquivo `.env`) e encaminha a requisição para a API remota.
+
+Exemplo:
+
+```
+https://seusite.com/api_proxy.php?endpoint=filmes
+```
+
+É redirecionado internamente para:
+
+```
+https://45.67.136.10/~joaopedro/process_filmes.php
+```
+
+### ⚙️ Configuração
+
+1. **Criar arquivo `.env`**
+
+   Na mesma pasta onde está o `api_proxy.php`, crie um arquivo chamado `.env` com o seguinte conteúdo:
+
+   ```
+   IMPORTADOR_API_BASE_URL=https://45.67.136.10/~joaopedro/
+   ```
+
+   > ⚠️ Importante: sempre terminar com `/` no final da URL.
+
+2. **Endpoints disponíveis**
+
+   O parâmetro `endpoint` aceita os seguintes valores:
+
+   - `canais` → chama `process_canais.php`
+   - `canais_status` → chama `process_canais_status.php`
+   - `filmes` → chama `process_filmes.php`
+   - `filmes_status` → chama `process_filmes_status.php`
+
+   Exemplos:
+
+   ```
+   api_proxy.php?endpoint=canais
+   api_proxy.php?endpoint=filmes
+   ```
+
+3. **Métodos suportados**
+
+   - **GET** → parâmetros passados na query string.
+   - **POST** → suporta envio de dados `form-data`, incluindo upload de arquivos.
+
+4. **Respostas**
+
+   - Caso o endpoint remoto responda com JSON, o proxy repassa o mesmo JSON.
+   - Caso ocorra erro, o proxy retorna:
+     - `400` → endpoint inválido.
+     - `404` → endpoint desconhecido.
+     - `405` → método não suportado.
+     - `500` → variável de ambiente não configurada.
+     - `502` → falha ao contactar o servidor remoto.
+
+### 🔒 Notas importantes
+
+- **Não existe pasta `/server` localmente exposta** neste projeto.
+- Todas as chamadas são redirecionadas **apenas para a API remota** definida em `IMPORTADOR_API_BASE_URL`.
+- O fallback de `require` local foi removido para evitar erros de configuração.
 
 ### ⏱️ Ajustando o tempo limite de download da M3U
 
