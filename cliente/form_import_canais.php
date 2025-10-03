@@ -182,25 +182,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             gap: 1.5rem;
         }
 
-        .timeout-hint {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            margin: 1rem 0 0;
-            padding: 1rem 1.25rem;
-            background: rgba(59, 130, 246, 0.12);
-            border: 1px solid var(--primary-light);
-            border-radius: var(--radius-md);
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
-
-        .timeout-hint i {
-            color: var(--primary-color);
-            margin-top: 0.2rem;
-        }
-
         .form-group {
             display: flex;
             flex-direction: column;
@@ -671,15 +652,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                required 
                                value="<?= htmlspecialchars($m3u_url) ?>"
                                placeholder="https://exemplo.com/lista.m3u">
-                    </div>
-
-                    <div class="timeout-hint">
-                        <i class="fas fa-hourglass-half"></i>
-                        <span>
-                            Importações de listas grandes podem levar até aproximadamente <?= $maxWaitMinutes ?>
-                            <?= $maxWaitMinutes === 1 ? 'minuto' : 'minutos' ?> (limite atual de <?= $timeout ?> segundos).
-                            Mantenha esta página aberta até o término para evitar interrupções.
-                        </span>
                     </div>
 
                     <button type="submit" class="submit-btn" id="submitBtn">
