@@ -409,9 +409,13 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         updateJob($adminPdo, $jobId, ['progress' => 10, 'message' => "Iniciando importação de {$totalEntries} itens..."]);
     }
 
-    $totalAdded = 0;
-    $totalSkipped = 0;
-    $totalErrors = 0;
+    $confirmedAdded = isset($job['total_added']) ? (int) $job['total_added'] : 0;
+    $confirmedSkipped = isset($job['total_skipped']) ? (int) $job['total_skipped'] : 0;
+    $confirmedErrors = isset($job['total_errors']) ? (int) $job['total_errors'] : 0;
+    $totalAdded = $confirmedAdded;
+    $totalSkipped = $confirmedSkipped;
+    $totalErrors = $confirmedErrors;
+    $lastPersistedCheckpoint = null;
 
     $checkStmt = $pdo->prepare('SELECT id FROM streams WHERE stream_source = :src LIMIT 1');
     $insertStmt = $pdo->prepare('
@@ -469,6 +473,12 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                     );
                     if (!$inTransaction && $latestProgressUpdate !== null) {
                         updateJob($adminPdo, $jobId, $latestProgressUpdate);
+                        $confirmedAdded = $latestProgressUpdate['total_added'];
+                        $confirmedSkipped = $latestProgressUpdate['total_skipped'];
+                        $confirmedErrors = $latestProgressUpdate['total_errors'];
+                        if ($lastCheckpointMarker !== null) {
+                            $lastPersistedCheckpoint = $lastCheckpointMarker;
+                        }
                     }
                     continue;
                 }
@@ -541,6 +551,12 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
                 if ($latestProgressUpdate !== null) {
                     updateJob($adminPdo, $jobId, $latestProgressUpdate);
+                    $confirmedAdded = $latestProgressUpdate['total_added'];
+                    $confirmedSkipped = $latestProgressUpdate['total_skipped'];
+                    $confirmedErrors = $latestProgressUpdate['total_errors'];
+                    if ($lastCheckpointMarker !== null) {
+                        $lastPersistedCheckpoint = $lastCheckpointMarker;
+                    }
                 }
             }
         }
@@ -548,30 +564,76 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             $pdo->commit();
             if ($latestProgressUpdate !== null) {
                 updateJob($adminPdo, $jobId, $latestProgressUpdate);
+                $confirmedAdded = $latestProgressUpdate['total_added'];
+                $confirmedSkipped = $latestProgressUpdate['total_skipped'];
+                $confirmedErrors = $latestProgressUpdate['total_errors'];
+                if ($lastCheckpointMarker !== null) {
+                    $lastPersistedCheckpoint = $lastCheckpointMarker;
+                }
             }
         } elseif ($latestProgressUpdate !== null) {
             updateJob($adminPdo, $jobId, $latestProgressUpdate);
+            $confirmedAdded = $latestProgressUpdate['total_added'];
+            $confirmedSkipped = $latestProgressUpdate['total_skipped'];
+            $confirmedErrors = $latestProgressUpdate['total_errors'];
+            if ($lastCheckpointMarker !== null) {
+                $lastPersistedCheckpoint = $lastCheckpointMarker;
+            }
         }
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        throw $e;
+        $confirmedProcessed = $confirmedAdded + $confirmedSkipped + $confirmedErrors;
+        $partialDetails = [];
+        if ($confirmedProcessed > 0) {
+            if ($totalEntries > 0) {
+                $partialDetails[] = "Importação interrompida após confirmar {$confirmedProcessed} de {$totalEntries} itens.";
+            } else {
+                $partialDetails[] = "Importação interrompida após confirmar {$confirmedProcessed} itens.";
+            }
+            $partialDetails[] = "Adicionados: {$confirmedAdded}, ignorados: {$confirmedSkipped}, erros: {$confirmedErrors}.";
+        }
+        if ($lastPersistedCheckpoint !== null) {
+            $partialDetails[] = 'Último checkpoint: ' . $lastPersistedCheckpoint . '.';
+        }
+        $partialDetails[] = 'Motivo: ' . $e->getMessage();
+
+        throw new RuntimeException(implode(' ', $partialDetails), 0, $e);
     }
 
-    $summary = "Resultado:\n";
-    $summary .= "✅ Filmes adicionados: {$totalAdded}\n";
-    $summary .= "⚠️ Filmes ignorados (duplicados): {$totalSkipped}\n";
-    if ($totalErrors > 0) {
-        $summary .= "❌ Erros: {$totalErrors}\n";
+    $confirmedProcessed = $confirmedAdded + $confirmedSkipped + $confirmedErrors;
+    $summaryLines = [];
+    $summaryLines[] = 'Resumo da importação de filmes:';
+
+    if ($totalEntries === 0) {
+        $summaryLines[] = 'ℹ️ Nenhum item válido foi encontrado para processamento.';
+    } else {
+        if ($confirmedProcessed >= $totalEntries) {
+            $statusLine = "✅ Importação concluída com sucesso. {$confirmedProcessed} de {$totalEntries} itens confirmados.";
+        } else {
+            $statusLine = "⚠️ Importação concluída parcialmente. {$confirmedProcessed} de {$totalEntries} itens confirmados.";
+            if ($lastPersistedCheckpoint !== null) {
+                $statusLine .= ' Último checkpoint: ' . $lastPersistedCheckpoint . '.';
+            }
+        }
+        $summaryLines[] = $statusLine;
     }
+
+    $summaryLines[] = "➕ Filmes adicionados confirmados: {$confirmedAdded}";
+    $summaryLines[] = "⏭️ Filmes ignorados (duplicados) confirmados: {$confirmedSkipped}";
+    if ($confirmedErrors > 0) {
+        $summaryLines[] = "❌ Erros confirmados: {$confirmedErrors}";
+    }
+
+    $summary = implode("\n", $summaryLines) . "\n";
 
     return [
         'message' => $summary,
         'totals' => [
-            'added' => $totalAdded,
-            'skipped' => $totalSkipped,
-            'errors' => $totalErrors,
+            'added' => $confirmedAdded,
+            'skipped' => $confirmedSkipped,
+            'errors' => $confirmedErrors,
         ],
         'm3u_file_path' => $fullPath,
     ];
