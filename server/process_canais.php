@@ -103,26 +103,37 @@ $fullPath = $uploadDir . $filename;
 
 // ---------- BAIXAR M3U ----------
 $opts = stream_context_create([
+    'socket' => [
+        'bindto' => '0.0.0.0:0', // força IPv4
+    ],
     'http' => [
         'timeout'    => $streamTimeout,
-        'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', // só o UA
+        'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         'header'     =>
-            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n" .
-            "Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7\r\n" .
+            "Accept: */*\r\n" .
+            "Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8\r\n" .
             "Connection: keep-alive\r\n"
     ],
     'https' => [
         'timeout'    => $streamTimeout,
         'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         'header'     =>
-            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n" .
-            "Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7\r\n" .
+            "Accept: */*\r\n" .
+            "Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8\r\n" .
             "Connection: keep-alive\r\n"
     ]
 ]);
 
-$contents = @file_get_contents($m3uUrl, false, $opts);
-file_put_contents($fullPath, $contents);
+
+
+if (download_with_redirects($m3uUrl, $fullPath, $opts, 10)) {
+    echo "Download concluído: $fullPath\n";
+} else {
+    echo "Falha ao baixar $m3uUrl\n";
+}
+
+$contents = file_get_contents($fullPath);
+
 
 if ($contents === false) {
     $status = 'erro';
@@ -192,6 +203,102 @@ function getCategoryId($pdo, $categoryName, $categoryType) {
         exit;
     }
 }
+
+
+/**
+ * Faz download de um arquivo com follow redirects
+ *
+ * @param string   $url
+ * @param string   $destino
+ * @param resource $context
+ * @param int      $maxRedirects
+ * @return bool
+ */
+function download_with_redirects(string $url, string $destino, $context, int $maxRedirects = 5): bool {
+    $currentUrl = $url;
+    $redirects  = 0;
+
+    while (true) {
+        $in = @fopen($currentUrl, "rb", false, $context);
+        if (!$in) {
+            return false;
+        }
+
+        // Captura headers da resposta
+        $headers    = $http_response_header ?? [];
+        $statusLine = $headers[0] ?? '';
+        preg_match('#HTTP/\d+\.\d+\s+(\d+)#', $statusLine, $m);
+        $status = isset($m[1]) ? (int)$m[1] : 0;
+
+        // Se não for redirect, salva no destino
+        if (!in_array($status, [301, 302, 303, 307, 308], true)) {
+            $out = fopen($destino, "wb");
+            if (!$out) {
+                fclose($in);
+                return false;
+            }
+            stream_copy_to_stream($in, $out);
+            fclose($in);
+            fclose($out);
+            return true;
+        }
+
+        // Pega header Location
+        $location = null;
+        foreach ($headers as $h) {
+            if (stripos($h, 'Location:') === 0) {
+                $location = trim(substr($h, strlen('Location:')));
+                break;
+            }
+        }
+        fclose($in);
+
+        if (!$location) {
+            return false;
+        }
+
+        // Resolve URL absoluta
+        $currentUrl = resolve_relative_url($currentUrl, $location);
+
+        $redirects++;
+        if ($redirects > $maxRedirects) {
+            trigger_error("Máximo de redirects excedido", E_USER_WARNING);
+            return false;
+        }
+    }
+}
+
+/**
+ * Resolve URL relativa em relação a uma base
+ */
+function resolve_relative_url(string $base, string $rel): string {
+    if (parse_url($rel, PHP_URL_SCHEME) !== null) {
+        return $rel; // já é absoluta
+    }
+    $baseParts = parse_url($base);
+    $scheme = $baseParts['scheme'] ?? 'http';
+    $host   = $baseParts['host'] ?? '';
+    $port   = isset($baseParts['port']) ? ':' . $baseParts['port'] : '';
+    $path   = $baseParts['path'] ?? '/';
+
+    if (strpos($rel, '//') === 0) {
+        return $scheme . ':' . $rel;
+    }
+    if (strpos($rel, '/') === 0) {
+        return $scheme . '://' . $host . $port . $rel;
+    }
+
+    $dir = preg_replace('#/[^/]*$#', '/', $path);
+    $abs = $scheme . '://' . $host . $port . $dir . $rel;
+
+    // Normaliza ../ e ./
+    $re = ['#(/\.?/)#', '#/(?!\.\.)[^/]+/\.\./#'];
+    for ($n = 0; $n < 10; $n++) {
+        $abs = preg_replace($re, '/', $abs);
+    }
+    return $abs;
+}
+
 
 // ---------- PARSING DO M3U ----------
 $lines = file($fullPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
