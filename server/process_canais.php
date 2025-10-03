@@ -38,10 +38,10 @@ if (
     strcasecmp($user, $testCode) === 0 &&
     strcasecmp($pass, $testCode) === 0
 ) {
-    $host = $adminDbHost;
+    $host   = $adminDbHost;
     $dbname = $adminDbName;
-    $user = $adminDbUser;
-    $pass = $adminDbPass;
+    $user   = $adminDbUser;
+    $pass   = $adminDbPass;
 }
 
 if (!$host || !$dbname || !$user || !$pass || !$m3uUrl) {
@@ -103,11 +103,27 @@ $fullPath = $uploadDir . $filename;
 
 // ---------- BAIXAR M3U ----------
 $opts = stream_context_create([
-    'http' => ['timeout' => $streamTimeout, 'follow_location' => 1, 'user_agent' => 'Importador-XUI/1.0'],
-    'https'=> ['timeout' => $streamTimeout, 'follow_location' => 1, 'user_agent' => 'Importador-XUI/1.0']
+    'http' => [
+        'timeout'    => $streamTimeout,
+        'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', // só o UA
+        'header'     =>
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n" .
+            "Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7\r\n" .
+            "Connection: keep-alive\r\n"
+    ],
+    'https' => [
+        'timeout'    => $streamTimeout,
+        'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'header'     =>
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8\r\n" .
+            "Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7\r\n" .
+            "Connection: keep-alive\r\n"
+    ]
 ]);
 
 $contents = @file_get_contents($m3uUrl, false, $opts);
+file_put_contents($fullPath, $contents);
+
 if ($contents === false) {
     $status = 'erro';
     $msg = "❌ Erro ao processar M3U.";
@@ -129,7 +145,6 @@ if ($contents === false) {
     die($msg);
 }
 
-file_put_contents($fullPath, $contents);
 
 // ---------- FUNÇÕES ----------
 function getStreamTypeByUrl($url) {
