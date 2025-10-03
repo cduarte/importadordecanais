@@ -299,6 +299,48 @@ function sanitizeMessage(string $message): string
     return substr($trimmed, 0, 2000);
 }
 
+function createCheckpointMarker(int $processedEntries, string $url): ?string
+{
+    $normalizedUrl = trim($url);
+    if ($processedEntries <= 0 || $normalizedUrl === '') {
+        return null;
+    }
+
+    $hash = hash('sha256', $normalizedUrl);
+    return $processedEntries . ':' . substr($hash, 0, 12);
+}
+
+function buildProgressUpdate(
+    int $processedEntries,
+    int $totalEntries,
+    int $totalAdded,
+    int $totalSkipped,
+    int $totalErrors,
+    ?string $checkpointMarker
+): array {
+    if ($totalEntries > 0) {
+        $progress = 10 + (int) floor(($processedEntries / $totalEntries) * 85);
+        if ($progress > 99) {
+            $progress = 99;
+        }
+    } else {
+        $progress = 99;
+    }
+
+    $message = "Processando filmes ({$processedEntries}/{$totalEntries})...";
+    if ($checkpointMarker !== null) {
+        $message .= ' Último marcador: ' . $checkpointMarker;
+    }
+
+    return [
+        'progress' => $progress,
+        'message' => $message,
+        'total_added' => $totalAdded,
+        'total_skipped' => $totalSkipped,
+        'total_errors' => $totalErrors,
+    ];
+}
+
 function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 {
     $jobId = (int) $job['id'];
@@ -393,6 +435,8 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     try {
         $inTransaction = false;
         $batchInsertions = 0;
+        $lastCheckpointMarker = null;
+        $latestProgressUpdate = null;
 
         foreach (extractEntries($fullPath) as $entry) {
             $streamInfo = getStreamTypeByUrl($entry['url']);
@@ -414,15 +458,17 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                     $checkStmt->closeCursor();
                     $totalSkipped++;
                     $processedEntries++;
-                    if ($totalEntries > 0) {
-                        $progress = 10 + (int) floor(($processedEntries / $totalEntries) * 85);
-                        if ($progress > 99) {
-                            $progress = 99;
-                        }
-                        updateJob($adminPdo, $jobId, [
-                            'progress' => $progress,
-                            'message' => "Processando filmes ({$processedEntries}/{$totalEntries})...",
-                        ]);
+                    $lastCheckpointMarker = createCheckpointMarker($processedEntries, $url);
+                    $latestProgressUpdate = buildProgressUpdate(
+                        $processedEntries,
+                        $totalEntries,
+                        $totalAdded,
+                        $totalSkipped,
+                        $totalErrors,
+                        $lastCheckpointMarker
+                    );
+                    if (!$inTransaction && $latestProgressUpdate !== null) {
+                        updateJob($adminPdo, $jobId, $latestProgressUpdate);
                     }
                     continue;
                 }
@@ -476,6 +522,15 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
             $processedEntries++;
             $batchInsertions++;
+            $lastCheckpointMarker = createCheckpointMarker($processedEntries, $url);
+            $latestProgressUpdate = buildProgressUpdate(
+                $processedEntries,
+                $totalEntries,
+                $totalAdded,
+                $totalSkipped,
+                $totalErrors,
+                $lastCheckpointMarker
+            );
 
             if ($batchInsertions >= BATCH_SIZE) {
                 if ($pdo->inTransaction()) {
@@ -483,21 +538,19 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 }
                 $inTransaction = false;
                 $batchInsertions = 0;
-            }
 
-            if ($totalEntries > 0) {
-                $progress = 10 + (int) floor(($processedEntries / $totalEntries) * 85);
-                if ($progress > 99) {
-                    $progress = 99;
+                if ($latestProgressUpdate !== null) {
+                    updateJob($adminPdo, $jobId, $latestProgressUpdate);
                 }
-                updateJob($adminPdo, $jobId, [
-                    'progress' => $progress,
-                    'message' => "Processando filmes ({$processedEntries}/{$totalEntries})...",
-                ]);
             }
         }
         if ($inTransaction && $pdo->inTransaction()) {
             $pdo->commit();
+            if ($latestProgressUpdate !== null) {
+                updateJob($adminPdo, $jobId, $latestProgressUpdate);
+            }
+        } elseif ($latestProgressUpdate !== null) {
+            updateJob($adminPdo, $jobId, $latestProgressUpdate);
         }
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
