@@ -2,6 +2,37 @@
 
 declare(strict_types=1);
 
+/**
+ * Importador API Proxy
+ *
+ * NOTA IMPORTANTE:
+ * - A pasta /server NÃO existe localmente neste servidor.
+ * - Toda chamada deve ser redirecionada para a API remota,
+ *   definida em IMPORTADOR_API_BASE_URL no arquivo .env.
+ */
+
+//
+// --- Loader manual do .env ---
+//
+$envFile = __DIR__ . '/.env';
+if (is_file($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#')) continue;
+        if (strpos($line, '=') !== false) {
+            [$name, $value] = array_map('trim', explode('=', $line, 2));
+            if ($name !== '') {
+                putenv("$name=$value");
+                $_ENV[$name] = $value;
+            }
+        }
+    }
+}
+
+//
+// --- Função de resposta JSON ---
+//
 function respondJson(array $payload, int $statusCode = 200): void
 {
     if (!headers_sent()) {
@@ -15,89 +46,43 @@ function respondJson(array $payload, int $statusCode = 200): void
     exit;
 }
 
+//
+// --- Verifica endpoint ---
+//
 $endpointKey = $_GET['endpoint'] ?? null;
 if (!is_string($endpointKey) || $endpointKey === '') {
     respondJson(['error' => 'Endpoint inválido.'], 400);
 }
 
 $endpointMap = [
-    'canais' => '/process_canais.php',
-    'canais_status' => '/process_canais_status.php',
-    'filmes' => '/process_filmes.php',
-    'filmes_status' => '/process_filmes_status.php',
+    'canais'        => 'process_canais.php',
+    'canais_status' => 'process_canais_status.php',
+    'filmes'        => 'process_filmes.php',
+    'filmes_status' => 'process_filmes_status.php',
 ];
 
 if (!array_key_exists($endpointKey, $endpointMap)) {
     respondJson(['error' => 'Endpoint desconhecido.'], 404);
 }
 
-$envBaseUrl = getenv('IMPORTADOR_API_BASE_URL') ?: ($_ENV['IMPORTADOR_API_BASE_URL'] ?? null);
-$apiBaseUrl = null;
+//
+// --- URL base da API ---
+//
+$apiBaseUrl = getenv('IMPORTADOR_API_BASE_URL') ?: ($_ENV['IMPORTADOR_API_BASE_URL'] ?? null);
+if (!is_string($apiBaseUrl) || $apiBaseUrl === '') {
+    respondJson(['error' => 'IMPORTADOR_API_BASE_URL não configurada no .env'], 500);
+}
+$apiBaseUrl = rtrim($apiBaseUrl, '/');
+
+//
+// --- URL alvo ---
+//
 $endpointPath = $endpointMap[$endpointKey];
-$normalizedEndpointPath = ltrim($endpointPath, '/');
+$targetUrl = $apiBaseUrl . '/' . ltrim($endpointPath, '/');
 
-if (is_string($envBaseUrl) && $envBaseUrl !== '') {
-    $apiBaseUrl = rtrim($envBaseUrl, '/');
-}
-
-if ($apiBaseUrl === null) {
-    $serverBaseDir = realpath(__DIR__ . '/../server');
-
-    if ($serverBaseDir !== false) {
-        $localTarget = realpath($serverBaseDir . '/' . $normalizedEndpointPath);
-
-        if ($localTarget !== false && is_file($localTarget)) {
-            $baseLength = strlen($serverBaseDir);
-            $nextChar = $localTarget[$baseLength] ?? '';
-
-            if (
-                strncmp($localTarget, $serverBaseDir, $baseLength) === 0
-                && ($nextChar === '' || $nextChar === DIRECTORY_SEPARATOR)
-            ) {
-                require $localTarget;
-                exit;
-            }
-        }
-    }
-
-    $host = $_SERVER['HTTP_HOST']
-        ?? $_SERVER['SERVER_NAME']
-        ?? 'localhost';
-
-    $scheme = 'http';
-
-    if (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
-        $scheme = 'https';
-    } elseif (!empty($_SERVER['REQUEST_SCHEME'])) {
-        $scheme = strtolower((string) $_SERVER['REQUEST_SCHEME']) === 'https' ? 'https' : 'http';
-    } elseif (!empty($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443) {
-        $scheme = 'https';
-    }
-
-    $scriptPath = $_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '';
-    $scriptDir = str_replace('\\', '/', dirname($scriptPath));
-    if ($scriptDir === '/' || $scriptDir === '\\' || $scriptDir === '.') {
-        $scriptDir = '';
-    } else {
-        $scriptDir = rtrim($scriptDir, '/');
-    }
-
-    $parentDir = $scriptDir === '' ? '' : str_replace('\\', '/', dirname($scriptDir));
-    if ($parentDir === '/' || $parentDir === '\\' || $parentDir === '.') {
-        $parentDir = '';
-    } else {
-        $parentDir = rtrim($parentDir, '/');
-    }
-
-    $serverPath = ($parentDir === '' ? '' : $parentDir) . '/server';
-    $serverPath = '/' . ltrim($serverPath, '/');
-
-    $apiBaseUrl = sprintf('%s://%s%s', $scheme, $host, $serverPath);
-    $apiBaseUrl = rtrim($apiBaseUrl, '/');
-}
-
-$targetUrl = $apiBaseUrl . '/' . $normalizedEndpointPath;
-
+//
+// --- Configuração do cURL ---
+//
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 if (!in_array($method, ['GET', 'POST'], true)) {
     respondJson(['error' => 'Método não suportado.'], 405);
@@ -135,13 +120,8 @@ if ($method === 'GET') {
 
     if (!empty($_FILES)) {
         foreach ($_FILES as $field => $fileInfo) {
-            if (is_array($fileInfo['name'])) {
-                continue;
-            }
-
-            if ((int) ($fileInfo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-                continue;
-            }
+            if (is_array($fileInfo['name'])) continue;
+            if ((int)($fileInfo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) continue;
 
             $postFields[$field] = new CURLFile(
                 $fileInfo['tmp_name'],
@@ -160,6 +140,9 @@ if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
 
 curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
 
+//
+// --- Executa requisição ---
+//
 $responseBody = curl_exec($curl);
 
 if ($responseBody === false) {
