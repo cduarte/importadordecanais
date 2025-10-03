@@ -1,3 +1,32 @@
+CREATE TABLE `clientes_import` (
+	`id` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+	`created_at` TIMESTAMP NOT NULL DEFAULT current_timestamp(),
+	`updated_at` TIMESTAMP NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+	`db_host` VARCHAR(200) NOT NULL COLLATE 'utf8mb4_unicode_ci',
+	`db_name` VARCHAR(150) NOT NULL COLLATE 'utf8mb4_unicode_ci',
+	`db_user` VARCHAR(100) NOT NULL COLLATE 'utf8mb4_unicode_ci',
+	`db_password` VARBINARY(512) NOT NULL,
+	`m3u_url` TEXT NULL DEFAULT NULL COLLATE 'utf8mb4_unicode_ci',
+	`m3u_file_path` TEXT NULL DEFAULT NULL COLLATE 'utf8mb4_unicode_ci',
+	`last_import_at` TIMESTAMP NULL DEFAULT NULL,
+	`import_count` INT(10) UNSIGNED NOT NULL DEFAULT '0',
+	`last_import_status` VARCHAR(50) NULL DEFAULT NULL COLLATE 'utf8mb4_unicode_ci',
+	`last_import_message` TEXT NULL DEFAULT NULL COLLATE 'utf8mb4_unicode_ci',
+	`api_token` CHAR(64) NOT NULL COLLATE 'utf8mb4_unicode_ci',
+	`token_hash` CHAR(128) NOT NULL COLLATE 'utf8mb4_unicode_ci',
+	`token_active` TINYINT(1) NOT NULL DEFAULT '1',
+	`client_ip` VARCHAR(45) NULL DEFAULT NULL COLLATE 'utf8mb4_unicode_ci',
+	`client_user_agent` VARCHAR(255) NULL DEFAULT NULL COLLATE 'utf8mb4_unicode_ci',
+	`notes` TEXT NULL DEFAULT NULL COLLATE 'utf8mb4_unicode_ci',
+	PRIMARY KEY (`id`) USING BTREE,
+	UNIQUE INDEX `uq_api_token` (`api_token`) USING BTREE,
+	INDEX `idx_db_host` (`db_host`) USING BTREE,
+	INDEX `idx_last_import_at` (`last_import_at`) USING BTREE
+)
+COLLATE='utf8mb4_unicode_ci'
+ENGINE=InnoDB
+;
+
 CREATE TABLE IF NOT EXISTS clientes_import_jobs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     db_host VARCHAR(191) NOT NULL,
