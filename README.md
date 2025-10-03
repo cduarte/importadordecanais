@@ -39,14 +39,10 @@ Cada worker valida o tipo do job antes de iniciar o processamento.
 
 ### 🌐 Configurando o endpoint da API
 
-O formulário de importação de filmes envia os dados para os scripts PHP localizados na pasta `server`. Para controlar qual domíni
-o será usado nas requisições, defina a variável de ambiente `IMPORTADOR_API_BASE_URL` apontando para o endereço público em que o
-backend está hospedado (por exemplo, `https://importador.seudominio.com/server`).
+O formulário de importação de filmes envia os dados para os scripts PHP localizados na pasta `server`. Para controlar qual domínio será usado nas requisições, defina a variável de ambiente `IMPORTADOR_API_BASE_URL` apontando para o endereço público em que o backend está hospedado (por exemplo, `https://importador.seudominio.com/server`).
 
-- **Ambiente de produção:** defina `IMPORTADOR_API_BASE_URL` para o domínio HTTPS onde os scripts `process_filmes.php` e `proces
-    s_filmes_status.php` estão disponíveis.
-- **Ambiente de desenvolvimento:** se a variável não estiver configurada, o sistema tenta descobrir automaticamente o domínio a
-    partir da requisição atual e assume o caminho `/server`.
+- **Ambiente de produção:** defina `IMPORTADOR_API_BASE_URL` para o domínio HTTPS onde os scripts `process_filmes.php` e `process_filmes_status.php` estão disponíveis.
+- **Ambiente de desenvolvimento:** se a variável não estiver configurada, o proxy executa diretamente os scripts da pasta `server` por meio do próprio PHP. Caso o arquivo não possa ser localizado, o sistema tenta descobrir automaticamente o domínio a partir da requisição atual e assume o caminho `/server`.
 
 Certifique-se de expor os scripts do diretório `server` no domínio desejado ou ajuste o valor da variável de ambiente para corres
 ponder à estrutura do seu servidor.

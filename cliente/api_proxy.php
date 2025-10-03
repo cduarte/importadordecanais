@@ -33,12 +33,33 @@ if (!array_key_exists($endpointKey, $endpointMap)) {
 
 $envBaseUrl = getenv('IMPORTADOR_API_BASE_URL') ?: ($_ENV['IMPORTADOR_API_BASE_URL'] ?? null);
 $apiBaseUrl = null;
+$endpointPath = $endpointMap[$endpointKey];
+$normalizedEndpointPath = ltrim($endpointPath, '/');
 
 if (is_string($envBaseUrl) && $envBaseUrl !== '') {
     $apiBaseUrl = rtrim($envBaseUrl, '/');
 }
 
 if ($apiBaseUrl === null) {
+    $serverBaseDir = realpath(__DIR__ . '/../server');
+
+    if ($serverBaseDir !== false) {
+        $localTarget = realpath($serverBaseDir . '/' . $normalizedEndpointPath);
+
+        if ($localTarget !== false && is_file($localTarget)) {
+            $baseLength = strlen($serverBaseDir);
+            $nextChar = $localTarget[$baseLength] ?? '';
+
+            if (
+                strncmp($localTarget, $serverBaseDir, $baseLength) === 0
+                && ($nextChar === '' || $nextChar === DIRECTORY_SEPARATOR)
+            ) {
+                require $localTarget;
+                exit;
+            }
+        }
+    }
+
     $host = $_SERVER['HTTP_HOST']
         ?? $_SERVER['SERVER_NAME']
         ?? 'localhost';
@@ -75,7 +96,7 @@ if ($apiBaseUrl === null) {
     $apiBaseUrl = rtrim($apiBaseUrl, '/');
 }
 
-$targetUrl = $apiBaseUrl . $endpointMap[$endpointKey];
+$targetUrl = $apiBaseUrl . '/' . $normalizedEndpointPath;
 
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 if (!in_array($method, ['GET', 'POST'], true)) {
