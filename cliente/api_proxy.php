@@ -45,7 +45,28 @@ if ($apiBaseUrl === null) {
 
     $scheme = 'https';
 
-    if (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
+    $forwardedProto = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? $_SERVER['HTTP_X_FORWARDED_SCHEME'] ?? null;
+    if (is_string($forwardedProto) && $forwardedProto !== '') {
+        $forwardedProto = strtolower(trim(explode(',', $forwardedProto)[0]));
+        if ($forwardedProto === 'https') {
+            $scheme = 'https';
+        } elseif ($forwardedProto === 'http') {
+            $scheme = 'http';
+        }
+    } elseif (!empty($_SERVER['HTTP_X_FORWARDED_SSL'])) {
+        $forwardedSsl = strtolower((string) $_SERVER['HTTP_X_FORWARDED_SSL']);
+        if ($forwardedSsl === 'on' || $forwardedSsl === '1') {
+            $scheme = 'https';
+        }
+    } elseif (!empty($_SERVER['HTTP_CF_VISITOR'])) {
+        $cfVisitorData = json_decode((string) $_SERVER['HTTP_CF_VISITOR'], true);
+        if (is_array($cfVisitorData) && isset($cfVisitorData['scheme'])) {
+            $schemeCandidate = strtolower((string) $cfVisitorData['scheme']);
+            if (in_array($schemeCandidate, ['http', 'https'], true)) {
+                $scheme = $schemeCandidate;
+            }
+        }
+    } elseif (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
         $scheme = 'https';
     } elseif (!empty($_SERVER['REQUEST_SCHEME'])) {
         $scheme = strtolower((string) $_SERVER['REQUEST_SCHEME']) === 'https' ? 'https' : 'http';
