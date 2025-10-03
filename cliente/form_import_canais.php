@@ -5,23 +5,31 @@ set_time_limit(0);
 ini_set('upload_max_filesize','20M');
 ini_set('post_max_size','25M');
 
-$actionUrl = 'http://45.67.136.10/~joaopedro/process_canais.php'; // idealmente https://
+$envBaseUrl = getenv('IMPORTADOR_API_BASE_URL') ?: ($_ENV['IMPORTADOR_API_BASE_URL'] ?? null);
+$envBaseUrl = "https://45.67.136.10/~joaopedro";
 
-$response = null;
+if ($envBaseUrl) {
+    $apiBaseUrl = rtrim($envBaseUrl, '/');
+} else {
+    $host = $_SERVER['HTTP_HOST']
+        ?? $_SERVER['SERVER_NAME']
+        ?? 'localhost';
 
-$defaultTimeout = 360;
-$timeoutEnv = getenv('IMPORTADOR_CURL_TIMEOUT');
-$timeout = filter_var($timeoutEnv, FILTER_VALIDATE_INT, [
-    'options' => ['min_range' => 1],
-]) ?: $defaultTimeout;
+    $scheme = 'https';
 
-$defaultConnectTimeout = 30;
-$connectTimeoutEnv = getenv('IMPORTADOR_CURL_CONNECT_TIMEOUT');
-$connectTimeout = filter_var($connectTimeoutEnv, FILTER_VALIDATE_INT, [
-    'options' => ['min_range' => 0],
-]) ?: $defaultConnectTimeout;
+    if (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
+        $scheme = 'https';
+    } elseif (!empty($_SERVER['REQUEST_SCHEME'])) {
+        $scheme = strtolower((string) $_SERVER['REQUEST_SCHEME']) === 'https' ? 'https' : 'http';
+    } elseif (!empty($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 80) {
+        $scheme = 'http';
+    }
 
-$maxWaitMinutes = max(1, (int) ceil($timeout / 60));
+    $apiBaseUrl = sprintf('%s://%s/server', $scheme, $host);
+}
+
+$actionUrl = $apiBaseUrl . '/process_canais.php';
+$statusUrl = $apiBaseUrl . '/process_canais_status.php';
 
 // manter valores preenchidos após submit
 $host = $_POST['host'] ?? '';
@@ -29,49 +37,6 @@ $dbname = $_POST['dbname'] ?? 'xui';
 $username = $_POST['username'] ?? '';
 $password = $_POST['password'] ?? '';
 $m3u_url = $_POST['m3u_url'] ?? '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!filter_var($m3u_url, FILTER_VALIDATE_URL)) {
-        $response = "URL M3U inválida.";
-    } else {
-        $postData = [
-            'host'    => $host,
-            'dbname'  => $dbname,
-            'username'=> $username,
-            'password'=> $password,
-            'm3u_url' => $m3u_url,
-        ];
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $actionUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $connectTimeout);
-        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-
-        if (stripos($actionUrl, 'https://') === 0) {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-        } else {
-            $response = "Problemas no servidor. Informar ao desenvolvedor.";
-        }
-
-        $raw = curl_exec($ch);
-        $curlErr = curl_error($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($curlErr) {
-            $response = "Erro na requisição: " . $curlErr;
-        } elseif ($httpCode >= 400) {
-            $response = "Erro HTTP {$httpCode} do servidor.";
-            if ($raw) $response .= "\nResposta: " . substr($raw, 0, 2000);
-        } else {
-            $response = $raw ?: 'Resposta vazia do servidor.';
-        }
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="pt-PT">
@@ -323,6 +288,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: var(--radius-md);
             padding: 1rem;
             margin-top: 1rem;
+        }
+
+        .progress-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: rgba(59, 130, 246, 0.15);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid rgba(59, 130, 246, 0.35);
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-align: right;
+        }
+
+        .message-lines {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            white-space: pre-line;
         }
 
         .hidden {
@@ -662,48 +663,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </main>
 
-        <?php if($response !== null): ?>
         <div class="response-container">
-            <div class="response-box">
-                <?php
-                // Determinar o tipo de resposta baseado no conteúdo
-                $isError = (strpos($response, 'Erro') !== false || 
-                           strpos($response, 'inválida') !== false || 
-                           strpos($response, 'Problemas') !== false ||
-                           strpos($response, 'HTTP 4') !== false ||
-                           strpos($response, 'HTTP 5') !== false);
-                
-                $isSuccess = (strpos($response, 'sucesso') !== false || 
-                             strpos($response, 'importado') !== false ||
-                             strpos($response, 'adicionado') !== false);
-                
-                $headerClass = $isError ? '' : ($isSuccess ? 'success' : 'warning');
-                $iconClass = $isError ? 'fa-exclamation-triangle' : ($isSuccess ? 'fa-check-circle' : 'fa-info-circle');
-                $headerText = $isError ? 'Erro na Importação' : ($isSuccess ? 'Importação Concluída' : 'Resultado da Importação');
-                ?>
-                
-                <div class="response-header <?= $headerClass ?>">
+            <div id="responseBox" class="response-box hidden">
+                <div id="responseHeader" class="response-header warning">
                     <h3>
-                        <i class="fas <?= $iconClass ?>"></i>
-                        <?= $headerText ?>
+                        <i id="responseIcon" class="fas fa-circle-info"></i>
+                        <span id="responseTitle">Resultado da Importação</span>
                     </h3>
                 </div>
-                
+
                 <div class="response-content">
-                    <?php
-                    // Processar a resposta linha por linha para melhor formatação
-                    $lines = explode("\n", $response);
-                    foreach ($lines as $line) {
-                        $line = trim($line);
-                        if (!empty($line)) {
-                            echo '<div class="message-line">' . htmlspecialchars($line) . '</div>';
-                        }
-                    }
-                    ?>
+                    <div id="progressWrapper" class="progress-wrapper hidden">
+                        <div class="progress-bar">
+                            <div id="progressBar" class="progress-bar-fill"></div>
+                        </div>
+                        <div id="progressText" class="progress-text">0%</div>
+                    </div>
+                    <div id="responseMessage" class="message-lines"></div>
                 </div>
             </div>
         </div>
-        <?php endif; ?>
 
         <section class="faq-section">
             <div class="faq-header">
@@ -790,13 +769,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </section>
     </div>
 
+    <script src="assets/importer.js"></script>
     <script>
+        const ACTION_URL = <?= json_encode($actionUrl, JSON_UNESCAPED_SLASHES) ?>;
+        const STATUS_URL = <?= json_encode($statusUrl, JSON_UNESCAPED_SLASHES) ?>;
+        const form = document.getElementById('importForm');
+        const submitBtn = document.getElementById('submitBtn');
+
+        createImportJobController({
+            form,
+            submitButton: submitBtn,
+            elements: {
+                responseBox: document.getElementById('responseBox'),
+                responseHeader: document.getElementById('responseHeader'),
+                responseIcon: document.getElementById('responseIcon'),
+                responseTitle: document.getElementById('responseTitle'),
+                responseMessage: document.getElementById('responseMessage'),
+                progressWrapper: document.getElementById('progressWrapper'),
+                progressBar: document.getElementById('progressBar'),
+                progressText: document.getElementById('progressText'),
+            },
+            urls: {
+                action: ACTION_URL,
+                status: STATUS_URL,
+            },
+            stateTitles: {
+                running: 'Processando canais',
+            },
+            messages: {
+                running: 'Processando canais...',
+            },
+            totalsLabels: {
+                added: 'Canais adicionados',
+                skipped: 'Canais ignorados',
+                errors: 'Erros',
+            },
+        });
+
         // Funcionalidade FAQ melhorada
         function toggleFaq(element) {
             const answer = element.nextElementSibling;
             const icon = element.querySelector('i:last-child');
-            
-            // Fechar outras FAQs abertas
+
             document.querySelectorAll('.faq-question').forEach(q => {
                 if (q !== element) {
                     q.classList.remove('active');
@@ -804,11 +818,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     q.querySelector('i:last-child').style.transform = 'rotate(0deg)';
                 }
             });
-            
-            // Toggle da FAQ atual
+
             element.classList.toggle('active');
             answer.classList.toggle('active');
-            
+
             if (element.classList.contains('active')) {
                 icon.style.transform = 'rotate(180deg)';
             } else {
@@ -820,9 +833,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         function toggleContent(element) {
             const content = element.nextElementSibling;
             const icon = element.querySelector('i:last-child');
-            
+
             content.classList.toggle('active');
-            
+
             if (content.classList.contains('active')) {
                 content.style.display = 'block';
                 icon.style.transform = 'rotate(180deg)';
@@ -831,21 +844,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 icon.style.transform = 'rotate(0deg)';
             }
         }
-
-        // Melhorias no formulário
-        document.getElementById('importForm').addEventListener('submit', function(e) {
-            const submitBtn = document.getElementById('submitBtn');
-            const originalText = submitBtn.innerHTML;
-            
-            // Mostrar estado de carregamento
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<div class="loading"></div> A processar...';
-            
-            // Simular delay mínimo para feedback visual
-            setTimeout(() => {
-                // O formulário será submetido normalmente
-            }, 500);
-        });
 
         // Validação em tempo real
         document.querySelectorAll('input[required]').forEach(input => {
