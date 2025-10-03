@@ -2,6 +2,60 @@
 
 declare(strict_types=1);
 
+// --- Loader manual do .env ---
+if (!function_exists('importador_load_env')) {
+    function importador_load_env(): void
+    {
+        static $loaded = false;
+        if ($loaded) {
+            return;
+        }
+        $loaded = true;
+
+        $paths = [
+            __DIR__ . '/.env',
+            dirname(__DIR__) . '/.env',
+        ];
+
+        $seen = [];
+        foreach ($paths as $path) {
+            if (!is_string($path) || $path === '' || !is_file($path)) {
+                continue;
+            }
+            if (isset($seen[$path])) {
+                continue;
+            }
+            $seen[$path] = true;
+
+            $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if ($lines === false) {
+                continue;
+            }
+
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if ($line === '' || $line[0] === '#') {
+                    continue;
+                }
+                if (strpos($line, '=') === false) {
+                    continue;
+                }
+
+                [$name, $value] = array_map('trim', explode('=', $line, 2));
+                if ($name === '') {
+                    continue;
+                }
+
+                putenv("{$name}={$value}");
+                $_ENV[$name] = $value;
+                $_SERVER[$name] = $value;
+            }
+        }
+    }
+}
+
+importador_load_env();
+
 set_time_limit(0);
 
 const CHANNEL_PROGRESS_START = 10;
