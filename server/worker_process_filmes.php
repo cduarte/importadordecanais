@@ -14,6 +14,17 @@ $streamTimeout = ($timeoutEnv !== false && is_numeric($timeoutEnv) && (int) $tim
 
 ini_set('default_socket_timeout', (string) $streamTimeout);
 
+function safePregReplace($pattern, $replacement, $subject): string
+{
+    $result = preg_replace($pattern, $replacement, $subject);
+
+    if ($result === null) {
+        return is_string($subject) ? $subject : (string) $subject;
+    }
+
+    return is_string($result) ? $result : (string) $result;
+}
+
 if (PHP_SAPI === 'cli' && function_exists('pcntl_signal') && function_exists('pcntl_alarm')) {
     pcntl_signal(SIGALRM, static function (): void {
         throw new RuntimeException('Tempo limite do worker atingido.');
@@ -102,16 +113,16 @@ function parseMovieTitle(string $rawName): array
         ];
     }
 
-    $normalized = preg_replace('/(?:\s*[-\x{2013}\x{2014}]?\s*)?(?:\(|\[)?\s*(legendado|leg)\b\s*(?:\]|\))?/iu', ' [L] ', $name);
+    $normalized = safePregReplace('/(?:\s*[-\x{2013}\x{2014}]?\s*)?(?:\(|\[)?\s*(legendado|leg)\b\s*(?:\]|\))?/iu', ' [L] ', $name);
     $legendPattern = '/\s*(\(|\[)\s*(leg|l)\s*(\]|\))\s*/i';
-    $normalized = preg_replace($legendPattern, ' [L] ', $normalized);
-    $normalized = preg_replace('/\s+/', ' ', $normalized);
+    $normalized = safePregReplace($legendPattern, ' [L] ', $normalized);
+    $normalized = safePregReplace('/\s+/', ' ', $normalized);
     $normalized = trim($normalized);
 
     $hasLegend = stripos($normalized, '[L]') !== false;
     if ($hasLegend) {
-        $normalized = preg_replace('/\s*\[L\]\s*/i', ' ', $normalized);
-        $normalized = preg_replace('/\s+/', ' ', $normalized);
+        $normalized = safePregReplace('/\s*\[L\]\s*/i', ' ', $normalized);
+        $normalized = safePregReplace('/\s+/', ' ', $normalized);
         $normalized = trim($normalized);
     }
 
@@ -143,7 +154,7 @@ function parseMovieTitle(string $rawName): array
 
         if ($titlePart !== '') {
             $titlePart = rtrim($titlePart);
-            $titlePart = preg_replace('/[\s\x{2013}\x{2014}\-:]+$/u', '', $titlePart);
+            $titlePart = safePregReplace('/[\s\x{2013}\x{2014}\-:]+$/u', '', $titlePart);
             $titlePart = trim($titlePart);
         }
 
@@ -160,7 +171,7 @@ function parseMovieTitle(string $rawName): array
         break;
     }
 
-    $normalized = preg_replace('/\s+/', ' ', $normalized);
+    $normalized = safePregReplace('/\s+/', ' ', $normalized);
     $normalized = trim($normalized);
 
     return [
@@ -491,16 +502,30 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 throw new RuntimeException('Erro ao verificar duplicata: ' . $e->getMessage());
             }
 
-            $parsedTitle = parseMovieTitle($entry['tvg_name'] ?? '');
-            $movieTitle = $parsedTitle['title'] !== '' ? $parsedTitle['title'] : ($entry['tvg_name'] ?: 'Sem Nome');
+            $sourceName = $entry['tvg_name'] ?? '';
+            if (!is_string($sourceName)) {
+                $sourceName = '';
+            }
+
+            $parsedTitle = parseMovieTitle($sourceName);
+            $parsedTitleTitle = $parsedTitle['title'];
+            if (!is_string($parsedTitleTitle)) {
+                $parsedTitleTitle = '';
+            }
+
+            $movieTitle = $parsedTitleTitle !== '' ? $parsedTitleTitle : ($sourceName !== '' ? $sourceName : 'Sem Nome');
             $hasLegend = $parsedTitle['legendado'];
             $movieYear = $parsedTitle['year'];
 
             $displayName = $movieTitle !== '' ? $movieTitle : 'Sem Nome';
+            if (!is_string($displayName) || $displayName === '') {
+                $displayName = 'Sem Nome';
+            }
             if ($hasLegend) {
                 $displayName = trim($displayName) . ' [L]';
             }
-            $displayName = preg_replace('/\s+/', ' ', trim($displayName));
+            $displayName = trim($displayName);
+            $displayName = safePregReplace('/\s+/', ' ', $displayName);
 
             $targetContainer = determineTargetContainer($url);
 
