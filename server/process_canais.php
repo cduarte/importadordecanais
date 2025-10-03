@@ -25,6 +25,39 @@ function triggerBackgroundWorker(string $workerScript, int $jobId): void
     }
 
     $phpBinary = PHP_BINARY !== '' ? PHP_BINARY : 'php';
+    $phpBinaryBasename = basename($phpBinary);
+    $shouldSwitchToCli = PHP_SAPI !== 'cli' || ($phpBinaryBasename !== '' && stripos($phpBinaryBasename, 'php-fpm') !== false);
+
+    if ($shouldSwitchToCli) {
+        $cliCandidates = [];
+        $envCli = getenv('IMPORTADOR_PHP_CLI');
+        if (is_string($envCli) && $envCli !== '') {
+            $cliCandidates[] = $envCli;
+        }
+
+        if (defined('PHP_BINDIR')) {
+            $cliCandidates[] = rtrim(PHP_BINDIR, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'php';
+        }
+
+        $cliCandidates[] = 'php';
+
+        foreach ($cliCandidates as $candidate) {
+            if ($candidate === '') {
+                continue;
+            }
+
+            if ($candidate === 'php') {
+                $phpBinary = $candidate;
+                break;
+            }
+
+            if (@is_executable($candidate)) {
+                $phpBinary = $candidate;
+                break;
+            }
+        }
+    }
+
     $command = escapeshellarg($phpBinary) . ' ' . escapeshellarg($scriptPath) . ' ' . $jobId;
 
     if (stripos(PHP_OS, 'WIN') === 0) {
