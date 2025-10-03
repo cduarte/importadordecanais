@@ -1,27 +1,12 @@
 <?php
 // configs iniciais
-ini_set('memory_limit','512M');
+ini_set('memory_limit', '512M');
 set_time_limit(0);
-ini_set('upload_max_filesize','20M');
-ini_set('post_max_size','25M');
+ini_set('upload_max_filesize', '20M');
+ini_set('post_max_size', '25M');
 
 $actionUrl = 'http://45.67.136.10/~joaopedro/process_filmes.php'; // idealmente https://
-
-$response = null;
-
-$defaultTimeout = 360;
-$timeoutEnv = getenv('IMPORTADOR_CURL_TIMEOUT');
-$timeout = filter_var($timeoutEnv, FILTER_VALIDATE_INT, [
-    'options' => ['min_range' => 1],
-]) ?: $defaultTimeout;
-
-$defaultConnectTimeout = 30;
-$connectTimeoutEnv = getenv('IMPORTADOR_CURL_CONNECT_TIMEOUT');
-$connectTimeout = filter_var($connectTimeoutEnv, FILTER_VALIDATE_INT, [
-    'options' => ['min_range' => 0],
-]) ?: $defaultConnectTimeout;
-
-$maxWaitMinutes = max(1, (int) ceil($timeout / 60));
+$statusUrl = 'http://45.67.136.10/~joaopedro/process_filmes_status.php';
 
 // manter valores preenchidos após submit
 $host = $_POST['host'] ?? '';
@@ -29,49 +14,6 @@ $dbname = $_POST['dbname'] ?? 'xui';
 $username = $_POST['username'] ?? '';
 $password = $_POST['password'] ?? '';
 $m3u_url = $_POST['m3u_url'] ?? '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!filter_var($m3u_url, FILTER_VALIDATE_URL)) {
-        $response = "URL M3U inválida.";
-    } else {
-        $postData = [
-            'host'    => $host,
-            'dbname'  => $dbname,
-            'username'=> $username,
-            'password'=> $password,
-            'm3u_url' => $m3u_url,
-        ];
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $actionUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $connectTimeout);
-        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-
-        if (stripos($actionUrl, 'https://') === 0) {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-        } else {
-            $response = "Problemas no servidor. Informar ao desenvolvedor.";
-        }
-
-        $raw = curl_exec($ch);
-        $curlErr = curl_error($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($curlErr) {
-            $response = "Erro na requisição: " . $curlErr;
-        } elseif ($httpCode >= 400) {
-            $response = "Erro HTTP {$httpCode} do servidor.";
-            if ($raw) $response .= "\nResposta: " . substr($raw, 0, 2000);
-        } else {
-            $response = $raw ?: 'Resposta vazia do servidor.';
-        }
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="pt-PT">
@@ -323,6 +265,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: var(--radius-md);
             padding: 1rem;
             margin-top: 1rem;
+        }
+
+        .progress-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: rgba(59, 130, 246, 0.15);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid rgba(59, 130, 246, 0.35);
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-align: right;
+        }
+
+        .message-lines {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            white-space: pre-line;
         }
 
         .hidden {
@@ -662,48 +640,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </main>
 
-        <?php if($response !== null): ?>
         <div class="response-container">
-            <div class="response-box">
-                <?php
-                // Determinar o tipo de resposta baseado no conteúdo
-                $isError = (strpos($response, 'Erro') !== false || 
-                           strpos($response, 'inválida') !== false || 
-                           strpos($response, 'Problemas') !== false ||
-                           strpos($response, 'HTTP 4') !== false ||
-                           strpos($response, 'HTTP 5') !== false);
-                
-                $isSuccess = (strpos($response, 'sucesso') !== false || 
-                             strpos($response, 'importado') !== false ||
-                             strpos($response, 'adicionado') !== false);
-                
-                $headerClass = $isError ? '' : ($isSuccess ? 'success' : 'warning');
-                $iconClass = $isError ? 'fa-exclamation-triangle' : ($isSuccess ? 'fa-check-circle' : 'fa-info-circle');
-                $headerText = $isError ? 'Erro na Importação' : ($isSuccess ? 'Importação Concluída' : 'Resultado da Importação');
-                ?>
-                
-                <div class="response-header <?= $headerClass ?>">
+            <div id="responseBox" class="response-box hidden">
+                <div id="responseHeader" class="response-header warning">
                     <h3>
-                        <i class="fas <?= $iconClass ?>"></i>
-                        <?= $headerText ?>
+                        <i id="responseIcon" class="fas fa-circle-info"></i>
+                        <span id="responseTitle">Resultado da Importação</span>
                     </h3>
                 </div>
-                
+
                 <div class="response-content">
-                    <?php
-                    // Processar a resposta linha por linha para melhor formatação
-                    $lines = explode("\n", $response);
-                    foreach ($lines as $line) {
-                        $line = trim($line);
-                        if (!empty($line)) {
-                            echo '<div class="message-line">' . htmlspecialchars($line) . '</div>';
-                        }
-                    }
-                    ?>
+                    <div id="progressWrapper" class="progress-wrapper hidden">
+                        <div class="progress-bar">
+                            <div id="progressBar" class="progress-bar-fill"></div>
+                        </div>
+                        <div id="progressText" class="progress-text">0%</div>
+                    </div>
+                    <div id="responseMessage" class="message-lines"></div>
                 </div>
             </div>
         </div>
-        <?php endif; ?>
 
         <section class="faq-section">
             <div class="faq-header">
@@ -791,12 +747,265 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script>
+        const ACTION_URL = <?= json_encode($actionUrl, JSON_UNESCAPED_SLASHES) ?>;
+        const STATUS_URL = <?= json_encode($statusUrl, JSON_UNESCAPED_SLASHES) ?>;
+        const POLL_INTERVAL_MS = 5000;
+
+        const form = document.getElementById('importForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const submitBtnOriginal = submitBtn.innerHTML;
+
+        const responseBox = document.getElementById('responseBox');
+        const responseHeader = document.getElementById('responseHeader');
+        const responseIcon = document.getElementById('responseIcon');
+        const responseTitle = document.getElementById('responseTitle');
+        const responseMessage = document.getElementById('responseMessage');
+        const progressWrapper = document.getElementById('progressWrapper');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+
+        let pollingHandle = null;
+        let currentJobId = null;
+
+        const responseStates = {
+            queued: { headerClass: 'warning', icon: 'fa-clock', title: 'Job na fila' },
+            running: { headerClass: 'warning', icon: 'fa-spinner fa-spin', title: 'Processando filmes' },
+            done: { headerClass: 'success', icon: 'fa-circle-check', title: 'Importação concluída' },
+            failed: { headerClass: '', icon: 'fa-triangle-exclamation', title: 'Falha na importação' },
+            error: { headerClass: '', icon: 'fa-triangle-exclamation', title: 'Erro' }
+        };
+
+        function showResponseBox() {
+            responseBox.classList.remove('hidden');
+        }
+
+        function resetProgress() {
+            progressWrapper.classList.add('hidden');
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
+        }
+
+        function updateProgress(value) {
+            if (typeof value !== 'number' || Number.isNaN(value)) {
+                progressWrapper.classList.add('hidden');
+                return;
+            }
+
+            const safeValue = Math.min(100, Math.max(0, Math.round(value)));
+            progressWrapper.classList.remove('hidden');
+            progressBar.style.width = `${safeValue}%`;
+            progressText.textContent = `${safeValue}%`;
+        }
+
+        function updateMessage(message) {
+            responseMessage.innerHTML = '';
+            if (!message) {
+                return;
+            }
+
+            message.split('\n').forEach(line => {
+                const trimmed = line.trim();
+                if (!trimmed) {
+                    return;
+                }
+                const div = document.createElement('div');
+                div.className = 'message-line';
+                div.textContent = trimmed;
+                responseMessage.appendChild(div);
+            });
+        }
+
+        function setHeader(stateKey, customTitle = null) {
+            const state = responseStates[stateKey] ?? responseStates.error;
+            responseHeader.classList.remove('success', 'warning');
+            if (state.headerClass) {
+                responseHeader.classList.add(state.headerClass);
+            }
+            responseIcon.className = `fas ${state.icon}`;
+            responseTitle.textContent = customTitle ?? state.title;
+            showResponseBox();
+        }
+
+        function setLoadingState() {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="loading"></div> A processar...';
+        }
+
+        function restoreButton() {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = submitBtnOriginal;
+        }
+
+        function handleError(message) {
+            stopPolling();
+            setHeader('error', 'Erro na importação');
+            updateMessage(message);
+            resetProgress();
+            restoreButton();
+            showResponseBox();
+        }
+
+        async function submitForm(event) {
+            event.preventDefault();
+
+            if (!form.reportValidity()) {
+                return;
+            }
+
+            stopPolling();
+            currentJobId = null;
+            setHeader('queued', 'Preparando importação');
+            updateMessage('Aguarde, estamos validando as credenciais...');
+            resetProgress();
+            showResponseBox();
+            setLoadingState();
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch(ACTION_URL, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const data = await response.json().catch(() => null);
+
+                if (!response.ok || !data) {
+                    const errorMsg = data && data.error ? data.error : `Falha na requisição (${response.status})`;
+                    handleError(errorMsg);
+                    return;
+                }
+
+                if (data.error) {
+                    handleError(data.error);
+                    return;
+                }
+
+                if (!data.job_id) {
+                    handleError('Resposta inesperada do servidor.');
+                    return;
+                }
+
+                currentJobId = data.job_id;
+                setHeader('queued', 'Job na fila');
+                updateMessage(`Job #${currentJobId} criado com sucesso. O processamento será iniciado em breve.`);
+                updateProgress(0);
+                startPolling(currentJobId);
+            } catch (error) {
+                handleError(`Erro de rede ao contactar o servidor: ${error.message}`);
+            }
+        }
+
+        async function fetchStatus(jobId) {
+            try {
+                const response = await fetch(`${STATUS_URL}?job_id=${encodeURIComponent(jobId)}`, {
+                    cache: 'no-store',
+                });
+
+                const data = await response.json().catch(() => null);
+
+                if (!response.ok || !data) {
+                    const errorMsg = data && data.error ? data.error : `Falha ao obter status (${response.status})`;
+                    handleError(errorMsg);
+                    return;
+                }
+
+                if (data.error) {
+                    handleError(data.error);
+                    return;
+                }
+
+                renderStatus(data);
+            } catch (error) {
+                updateMessage(`Aviso: não foi possível atualizar o status no momento (${error.message}).`);
+            }
+        }
+
+        function renderStatus(data) {
+            const status = data.status;
+            const message = data.message ?? '';
+            const progress = typeof data.progress === 'number' ? data.progress : null;
+            const totals = data.totals || {};
+
+            updateProgress(progress);
+
+            const totalsLines = [];
+            ['added', 'skipped', 'errors'].forEach(key => {
+                if (typeof totals[key] === 'number') {
+                    const labels = {
+                        added: 'Filmes adicionados',
+                        skipped: 'Filmes ignorados',
+                        errors: 'Erros',
+                    };
+                    totalsLines.push(`${labels[key]}: ${totals[key]}`);
+                }
+            });
+
+            const combinedMessage = (() => {
+                const extra = totalsLines.length ? totalsLines.join('\n') : '';
+                if (message && extra) {
+                    return `${message}\n${extra}`;
+                }
+                return message || extra;
+            })();
+
+            if (status === 'queued') {
+                setHeader('queued');
+                updateMessage(combinedMessage || 'Job aguardando processamento...');
+                return;
+            }
+
+            if (status === 'running') {
+                setHeader('running');
+                updateMessage(combinedMessage || 'Processando filmes...');
+                return;
+            }
+
+            if (status === 'done') {
+                setHeader('done');
+                updateMessage(combinedMessage || 'Importação finalizada.');
+                updateProgress(100);
+                stopPolling();
+                restoreButton();
+                return;
+            }
+
+            if (status === 'failed') {
+                setHeader('failed');
+                updateMessage(combinedMessage || 'Ocorreu um erro durante o processamento.');
+                updateProgress(100);
+                stopPolling();
+                restoreButton();
+                return;
+            }
+
+            setHeader('error');
+            updateMessage(combinedMessage || 'Status desconhecido retornado pelo servidor.');
+            stopPolling();
+            restoreButton();
+        }
+
+        function startPolling(jobId) {
+            stopPolling();
+            showResponseBox();
+            fetchStatus(jobId);
+            pollingHandle = setInterval(() => fetchStatus(jobId), POLL_INTERVAL_MS);
+        }
+
+        function stopPolling() {
+            if (pollingHandle) {
+                clearInterval(pollingHandle);
+                pollingHandle = null;
+            }
+        }
+
+        form.addEventListener('submit', submitForm);
+
         // Funcionalidade FAQ melhorada
         function toggleFaq(element) {
             const answer = element.nextElementSibling;
             const icon = element.querySelector('i:last-child');
-            
-            // Fechar outras FAQs abertas
+
             document.querySelectorAll('.faq-question').forEach(q => {
                 if (q !== element) {
                     q.classList.remove('active');
@@ -804,11 +1013,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     q.querySelector('i:last-child').style.transform = 'rotate(0deg)';
                 }
             });
-            
-            // Toggle da FAQ atual
+
             element.classList.toggle('active');
             answer.classList.toggle('active');
-            
+
             if (element.classList.contains('active')) {
                 icon.style.transform = 'rotate(180deg)';
             } else {
@@ -820,9 +1028,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         function toggleContent(element) {
             const content = element.nextElementSibling;
             const icon = element.querySelector('i:last-child');
-            
+
             content.classList.toggle('active');
-            
+
             if (content.classList.contains('active')) {
                 content.style.display = 'block';
                 icon.style.transform = 'rotate(180deg)';
@@ -831,21 +1039,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 icon.style.transform = 'rotate(0deg)';
             }
         }
-
-        // Melhorias no formulário
-        document.getElementById('importForm').addEventListener('submit', function(e) {
-            const submitBtn = document.getElementById('submitBtn');
-            const originalText = submitBtn.innerHTML;
-            
-            // Mostrar estado de carregamento
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<div class="loading"></div> A processar...';
-            
-            // Simular delay mínimo para feedback visual
-            setTimeout(() => {
-                // O formulário será submetido normalmente
-            }, 500);
-        });
 
         // Validação em tempo real
         document.querySelectorAll('input[required]').forEach(input => {
@@ -858,7 +1051,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             });
         });
 
-        // Validação especial para URL
         document.getElementById('m3u_url').addEventListener('input', function() {
             const urlPattern = /^https?:\/\/.+/;
             if (this.value && !urlPattern.test(this.value)) {
