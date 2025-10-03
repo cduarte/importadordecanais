@@ -236,10 +236,38 @@
             }
         }
 
+        function buildStatusEndpoint(jobId) {
+            if (!statusUrl) {
+                throw new Error('URL de status não configurada.');
+            }
+
+            const trimmedStatusUrl = statusUrl.trim();
+            const hashIndex = trimmedStatusUrl.indexOf('#');
+            const hash = hashIndex >= 0 ? trimmedStatusUrl.slice(hashIndex) : '';
+            const urlWithoutHash = hashIndex >= 0 ? trimmedStatusUrl.slice(0, hashIndex) : trimmedStatusUrl;
+
+            try {
+                const parsed = new URL(urlWithoutHash, window.location.href);
+                parsed.searchParams.set('job_id', jobId);
+                return `${parsed.toString()}${hash}`;
+            } catch (error) {
+                const questionMarkIndex = urlWithoutHash.indexOf('?');
+                const basePath = questionMarkIndex >= 0 ? urlWithoutHash.slice(0, questionMarkIndex) : urlWithoutHash;
+                const queryString = questionMarkIndex >= 0 ? urlWithoutHash.slice(questionMarkIndex + 1) : '';
+
+                const params = new URLSearchParams(queryString);
+                params.set('job_id', jobId);
+
+                const finalQuery = params.toString();
+                const separator = finalQuery ? '?' : '';
+
+                return `${basePath}${separator}${finalQuery}${hash}`;
+            }
+        }
+
         async function fetchStatus(jobId) {
             try {
-                const statusEndpoint = new URL(statusUrl, window.location.href);
-                statusEndpoint.searchParams.set('job_id', jobId);
+                const statusEndpoint = buildStatusEndpoint(jobId);
 
                 const response = await fetch(statusEndpoint, {
                     cache: 'no-store'
