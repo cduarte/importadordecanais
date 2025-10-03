@@ -272,6 +272,9 @@
             const totalsLines = [];
             Object.entries(totalsLabels).forEach(([key, label]) => {
                 if (typeof totals[key] === 'number' && label) {
+                    if (key === 'errors' && totals[key] === 0) {
+                        return;
+                    }
                     const messageAlreadyHasLabel = typeof message === 'string' && message.includes(label);
                     if (!messageAlreadyHasLabel) {
                         totalsLines.push(`${label}: ${totals[key]}`);
