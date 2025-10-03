@@ -961,7 +961,16 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                         skipped: 'Filmes ignorados',
                         errors: 'Erros',
                     };
-                    totalsLines.push(`${labels[key]}: ${totals[key]}`);
+
+                    const label = labels[key];
+                    if (!label) {
+                        return;
+                    }
+
+                    const messageAlreadyHasLabel = typeof message === 'string' && message.includes(label);
+                    if (!messageAlreadyHasLabel) {
+                        totalsLines.push(`${label}: ${totals[key]}`);
+                    }
                 }
             });
 
