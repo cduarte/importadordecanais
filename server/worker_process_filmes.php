@@ -226,58 +226,67 @@ function determineTargetContainer(string $url): string
     return 'mp4';
 }
 
-function extractEntries(array $lines): array
+/**
+ * @return \Generator<int, array{url: string, tvg_logo: string, group_title: string, tvg_name: string}>
+ */
+function extractEntries(string $filePath): \Generator
 {
-    $entries = [];
+    $handle = fopen($filePath, 'r');
+    if ($handle === false) {
+        throw new RuntimeException('Não foi possível ler o ficheiro M3U.');
+    }
+
     $currentInfo = [
         'tvg_logo' => '',
         'group_title' => 'Filmes',
         'tvg_name' => '',
     ];
 
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line === '') {
-            continue;
-        }
-
-        if (stripos($line, '#EXTINF:') === 0) {
-            preg_match('/tvg-logo="(.*?)"/', $line, $logoMatch);
-            $currentInfo['tvg_logo'] = $logoMatch[1] ?? '';
-
-            $groupTitle = 'Filmes';
-            if (preg_match('/group-title="(.*?)"/', $line, $groupMatch)) {
-                $groupTitle = trim($groupMatch[1]);
+    try {
+        while (($line = fgets($handle)) !== false) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
             }
 
-            $title = '';
-            $pos = strpos($line, '",');
-            if ($pos !== false) {
-                $title = trim(substr($line, $pos + 2));
+            if (stripos($line, '#EXTINF:') === 0) {
+                preg_match('/tvg-logo="(.*?)"/', $line, $logoMatch);
+                $currentInfo['tvg_logo'] = $logoMatch[1] ?? '';
+
+                $groupTitle = 'Filmes';
+                if (preg_match('/group-title="(.*?)"/', $line, $groupMatch)) {
+                    $groupTitle = trim($groupMatch[1]);
+                }
+
+                $title = '';
+                $pos = strpos($line, '",');
+                if ($pos !== false) {
+                    $title = trim(substr($line, $pos + 2));
+                }
+                if ($title === '') {
+                    $parts = explode(',', $line, 2);
+                    $title = trim($parts[1] ?? '');
+                }
+
+                $currentInfo['group_title'] = $groupTitle ?: 'Filmes';
+                $currentInfo['tvg_name'] = $title;
+                continue;
             }
-            if ($title === '') {
-                $parts = explode(',', $line, 2);
-                $title = trim($parts[1] ?? '');
+
+            if (!filter_var($line, FILTER_VALIDATE_URL)) {
+                continue;
             }
 
-            $currentInfo['group_title'] = $groupTitle ?: 'Filmes';
-            $currentInfo['tvg_name'] = $title;
-            continue;
+            yield [
+                'url' => $line,
+                'tvg_logo' => $currentInfo['tvg_logo'] ?? '',
+                'group_title' => $currentInfo['group_title'] ?? 'Filmes',
+                'tvg_name' => $currentInfo['tvg_name'] ?? '',
+            ];
         }
-
-        if (!filter_var($line, FILTER_VALIDATE_URL)) {
-            continue;
-        }
-
-        $entries[] = [
-            'url' => $line,
-            'tvg_logo' => $currentInfo['tvg_logo'] ?? '',
-            'group_title' => $currentInfo['group_title'] ?? 'Filmes',
-            'tvg_name' => $currentInfo['tvg_name'] ?? '',
-        ];
+    } finally {
+        fclose($handle);
     }
-
-    return $entries;
 }
 
 function sanitizeMessage(string $message): string
@@ -341,24 +350,14 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         throw new RuntimeException('Erro ao conectar no banco de dados de destino: ' . $e->getMessage());
     }
 
-    $lines = file($fullPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if ($lines === false) {
-        throw new RuntimeException('Não foi possível ler o ficheiro M3U.');
-    }
-
-    $entries = extractEntries($lines);
-    $preparedEntries = [];
-    foreach ($entries as $entry) {
+    $totalEntries = 0;
+    foreach (extractEntries($fullPath) as $entry) {
         $streamInfo = getStreamTypeByUrl($entry['url']);
         if ($streamInfo === null || (int) $streamInfo['type'] !== 2) {
             continue;
         }
-        $entry['stream_info'] = $streamInfo;
-        $preparedEntries[] = $entry;
+        $totalEntries++;
     }
-
-    $entries = $preparedEntries;
-    $totalEntries = count($entries);
     $processedEntries = 0;
 
     if ($totalEntries === 0) {
@@ -393,10 +392,14 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     try {
         $pdo->beginTransaction();
 
-        foreach ($entries as $entry) {
-            $url = trim($entry['url']);
-            $streamInfo = $entry['stream_info'];
+        foreach (extractEntries($fullPath) as $entry) {
+            $streamInfo = getStreamTypeByUrl($entry['url']);
+            if ($streamInfo === null || (int) $streamInfo['type'] !== 2) {
+                continue;
+            }
 
+            $url = trim($entry['url']);
+            
             $categoryType = $streamInfo['category_type'];
             $directSource = $streamInfo['direct_source'];
             $categoryId = getCategoryId($pdo, $entry['group_title'] ?? 'Filmes', $categoryType);
