@@ -1,0 +1,637 @@
+<?php
+
+declare(strict_types=1);
+
+set_time_limit(0);
+
+const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
+
+$timeoutEnv = getenv('IMPORTADOR_M3U_TIMEOUT');
+$streamTimeout = ($timeoutEnv !== false && is_numeric($timeoutEnv) && (int) $timeoutEnv > 0)
+    ? (int) $timeoutEnv
+    : 600;
+
+ini_set('default_socket_timeout', (string) $streamTimeout);
+
+if (PHP_SAPI === 'cli' && function_exists('pcntl_signal') && function_exists('pcntl_alarm')) {
+    pcntl_signal(SIGALRM, static function (): void {
+        throw new RuntimeException('Tempo limite do worker atingido.');
+    });
+    pcntl_alarm(max(60, min(3600, $streamTimeout * 2)));
+}
+
+function logInfo(string $message): void
+{
+    $line = '[' . date('c') . '] ' . $message;
+    if (PHP_SAPI === 'cli' && defined('STDOUT')) {
+        fwrite(STDOUT, $line . PHP_EOL);
+    } else {
+        error_log($line);
+    }
+}
+
+function updateJob(PDO $adminPdo, int $jobId, array $fields): void
+{
+    if (empty($fields)) {
+        return;
+    }
+
+    $allowed = [
+        'status',
+        'progress',
+        'message',
+        'm3u_file_path',
+        'total_added',
+        'total_skipped',
+        'total_errors',
+        'started_at',
+        'finished_at',
+    ];
+
+    $setParts = [];
+    $params = [':id' => $jobId];
+    foreach ($fields as $column => $value) {
+        if (!in_array($column, $allowed, true)) {
+            continue;
+        }
+        if ($column === 'message' && is_string($value)) {
+            $value = sanitizeMessage($value);
+        }
+        $placeholder = ':' . $column;
+        $setParts[] = "`{$column}` = {$placeholder}";
+        $params[$placeholder] = $value;
+    }
+
+    if (empty($setParts)) {
+        return;
+    }
+
+    $setParts[] = '`updated_at` = NOW()';
+    $sql = 'UPDATE clientes_import_jobs SET ' . implode(', ', $setParts) . ' WHERE id = :id LIMIT 1';
+
+    $stmt = $adminPdo->prepare($sql);
+    $stmt->execute($params);
+}
+
+function fetchJob(PDO $adminPdo, int $jobId): ?array
+{
+    $stmt = $adminPdo->prepare('SELECT * FROM clientes_import_jobs WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $jobId]);
+    $job = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $job ?: null;
+}
+
+function getStreamTypeByUrl(string $url): ?array
+{
+    if (stripos($url, '/movie/') !== false) {
+        return ['type' => 2, 'category_type' => 'movie', 'direct_source' => 1];
+    }
+    return null;
+}
+
+function parseMovieTitle(string $rawName): array
+{
+    $name = trim($rawName);
+
+    if ($name === '') {
+        return [
+            'title' => '',
+            'legendado' => false,
+            'year' => null,
+        ];
+    }
+
+    $normalized = preg_replace('/(?:\s*[-\x{2013}\x{2014}]?\s*)?(?:\(|\[)?\s*(legendado|leg)\b\s*(?:\]|\))?/i', ' [L] ', $name);
+    $legendPattern = '/\s*(\(|\[)\s*(leg|l)\s*(\]|\))\s*/i';
+    $normalized = preg_replace($legendPattern, ' [L] ', $normalized);
+    $normalized = preg_replace('/\s+/', ' ', $normalized);
+    $normalized = trim($normalized);
+
+    $hasLegend = stripos($normalized, '[L]') !== false;
+    if ($hasLegend) {
+        $normalized = preg_replace('/\s*\[L\]\s*/i', ' ', $normalized);
+        $normalized = preg_replace('/\s+/', ' ', $normalized);
+        $normalized = trim($normalized);
+    }
+
+    $year = null;
+    $yearPatterns = [
+        '/^(?P<title>.*)(?:\s*[-\x{2013}\x{2014}:]?\s*(?:[\(\[]\s*(?P<year>(?:19|20)\d{2})\s*[\)\]]|(?P<year_alt>(?:19|20)\d{2}))(?:\s*(?P<suffix>(?:\s*(?:\(|\[)[^\)\]]*(?:\)|\]))*))?)\s*$/u',
+        '/^(?P<title>.*\S)(?:\s*[-\x{2013}\x{2014}:]?\s*(?P<year>(?:19|20)\d{2}))\s*$/u',
+        '/^(?P<year>(?:19|20)\d{2})\s*$/u',
+    ];
+
+    foreach ($yearPatterns as $pattern) {
+        if (!preg_match($pattern, $normalized, $matches)) {
+            continue;
+        }
+
+        $yearValue = null;
+        if (!empty($matches['year'])) {
+            $yearValue = (int) $matches['year'];
+        } elseif (!empty($matches['year_alt'])) {
+            $yearValue = (int) $matches['year_alt'];
+        }
+
+        if ($yearValue === null || $yearValue <= 0) {
+            continue;
+        }
+
+        $titlePart = $matches['title'] ?? '';
+        $suffixPart = $matches['suffix'] ?? '';
+
+        if ($titlePart !== '') {
+            $titlePart = rtrim($titlePart);
+            $titlePart = preg_replace('/[\s\x{2013}\x{2014}\-:]+$/u', '', $titlePart);
+            $titlePart = trim($titlePart);
+        }
+
+        $combinedTitle = $titlePart;
+        if ($suffixPart !== '') {
+            $suffixPart = trim($suffixPart);
+            if ($suffixPart !== '') {
+                $combinedTitle = $combinedTitle !== '' ? ($combinedTitle . ' ' . $suffixPart) : $suffixPart;
+            }
+        }
+
+        $normalized = $combinedTitle;
+        $year = $yearValue;
+        break;
+    }
+
+    $normalized = preg_replace('/\s+/', ' ', $normalized);
+    $normalized = trim($normalized);
+
+    return [
+        'title' => $normalized,
+        'legendado' => $hasLegend,
+        'year' => $year,
+    ];
+}
+
+function gerarChaveCategoria(string $nome, string $tipo): string
+{
+    $chave = trim($tipo) . '|' . trim($nome);
+    return function_exists('mb_strtolower') ? mb_strtolower($chave, 'UTF-8') : strtolower($chave);
+}
+
+function isAdultCategory(string $categoryName): bool
+{
+    return stripos($categoryName, 'adulto') !== false || stripos($categoryName, 'xxx') !== false;
+}
+
+function getCategoryId(PDO $pdo, string $categoryName, string $categoryType): int
+{
+    static $cache = [];
+    $categoryName = trim($categoryName) !== '' ? trim($categoryName) : 'Filmes';
+    $cacheKey = gerarChaveCategoria($categoryName, $categoryType);
+
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+
+    $stmt = $pdo->prepare('SELECT id FROM streams_categories WHERE category_name = :name AND category_type = :type LIMIT 1');
+    $stmt->execute([':name' => $categoryName, ':type' => $categoryType]);
+    $res = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($res) {
+        $cache[$cacheKey] = (int) $res['id'];
+        return (int) $res['id'];
+    }
+
+    $isAdult = isAdultCategory($categoryName);
+    $insert = $pdo->prepare('
+        INSERT INTO streams_categories (category_type, category_name, parent_id, cat_order, is_adult)
+        VALUES (:type, :name, 0, :cat_order, :is_adult)
+    ');
+    $insert->execute([
+        ':type' => $categoryType,
+        ':name' => $categoryName,
+        ':cat_order' => $isAdult ? 9999 : 99,
+        ':is_adult' => $isAdult ? 1 : 0,
+    ]);
+
+    $lastId = (int) $pdo->lastInsertId();
+    $cache[$cacheKey] = $lastId;
+
+    return $lastId;
+}
+
+function determineTargetContainer(string $url): string
+{
+    $path = parse_url($url, PHP_URL_PATH);
+    $extension = is_string($path) ? strtolower((string) pathinfo($path, PATHINFO_EXTENSION)) : '';
+    if ($extension && in_array($extension, SUPPORTED_TARGET_CONTAINERS, true)) {
+        return $extension;
+    }
+    return 'mp4';
+}
+
+function extractEntries(array $lines): array
+{
+    $entries = [];
+    $currentInfo = [
+        'tvg_logo' => '',
+        'group_title' => 'Filmes',
+        'tvg_name' => '',
+    ];
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '') {
+            continue;
+        }
+
+        if (stripos($line, '#EXTINF:') === 0) {
+            preg_match('/tvg-logo="(.*?)"/', $line, $logoMatch);
+            $currentInfo['tvg_logo'] = $logoMatch[1] ?? '';
+
+            $groupTitle = 'Filmes';
+            if (preg_match('/group-title="(.*?)"/', $line, $groupMatch)) {
+                $groupTitle = trim($groupMatch[1]);
+            }
+
+            $title = '';
+            $pos = strpos($line, '",');
+            if ($pos !== false) {
+                $title = trim(substr($line, $pos + 2));
+            }
+            if ($title === '') {
+                $parts = explode(',', $line, 2);
+                $title = trim($parts[1] ?? '');
+            }
+
+            $currentInfo['group_title'] = $groupTitle ?: 'Filmes';
+            $currentInfo['tvg_name'] = $title;
+            continue;
+        }
+
+        if (!filter_var($line, FILTER_VALIDATE_URL)) {
+            continue;
+        }
+
+        $entries[] = [
+            'url' => $line,
+            'tvg_logo' => $currentInfo['tvg_logo'] ?? '',
+            'group_title' => $currentInfo['group_title'] ?? 'Filmes',
+            'tvg_name' => $currentInfo['tvg_name'] ?? '',
+        ];
+    }
+
+    return $entries;
+}
+
+function sanitizeMessage(string $message): string
+{
+    $trimmed = trim($message);
+    if (function_exists('mb_substr')) {
+        return mb_substr($trimmed, 0, 2000, 'UTF-8');
+    }
+    return substr($trimmed, 0, 2000);
+}
+
+function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
+{
+    $jobId = (int) $job['id'];
+    $host = $job['db_host'];
+    $dbname = $job['db_name'];
+    $user = $job['db_user'];
+    $pass = $job['db_password'];
+    $m3uUrl = $job['m3u_url'];
+
+    $uploadDir = __DIR__ . '/m3u_uploads/';
+    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
+        throw new RuntimeException('Não foi possível criar o diretório de uploads.');
+    }
+
+    updateJob($adminPdo, $jobId, ['status' => 'running', 'progress' => 1, 'message' => 'Baixando lista M3U...', 'started_at' => date('Y-m-d H:i:s')]);
+
+    $opts = stream_context_create([
+        'http' => ['timeout' => $streamTimeout, 'follow_location' => 1, 'user_agent' => 'Importador-XUI/1.0'],
+        'https' => ['timeout' => $streamTimeout, 'follow_location' => 1, 'user_agent' => 'Importador-XUI/1.0'],
+    ]);
+
+    $contents = @file_get_contents($m3uUrl, false, $opts);
+    if ($contents === false) {
+        throw new RuntimeException('Erro ao baixar a lista M3U informada.');
+    }
+
+    $filename = 'm3u_' . time() . '_' . substr(md5($m3uUrl), 0, 8) . '.m3u';
+    $fullPath = $uploadDir . $filename;
+    if (file_put_contents($fullPath, $contents) === false) {
+        throw new RuntimeException('Erro ao gravar a lista M3U no servidor.');
+    }
+
+    updateJob($adminPdo, $jobId, [
+        'm3u_file_path' => $fullPath,
+        'progress' => 5,
+        'message' => 'Lista M3U baixada com sucesso. Conectando ao banco de destino...'
+    ]);
+
+    try {
+        $pdo = new PDO(
+            "mysql:host={$host};dbname={$dbname};charset=utf8mb4",
+            $user,
+            $pass,
+            [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]
+        );
+    } catch (PDOException $e) {
+        throw new RuntimeException('Erro ao conectar no banco de dados de destino: ' . $e->getMessage());
+    }
+
+    $lines = file($fullPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) {
+        throw new RuntimeException('Não foi possível ler o ficheiro M3U.');
+    }
+
+    $entries = extractEntries($lines);
+    $preparedEntries = [];
+    foreach ($entries as $entry) {
+        $streamInfo = getStreamTypeByUrl($entry['url']);
+        if ($streamInfo === null || (int) $streamInfo['type'] !== 2) {
+            continue;
+        }
+        $entry['stream_info'] = $streamInfo;
+        $preparedEntries[] = $entry;
+    }
+
+    $entries = $preparedEntries;
+    $totalEntries = count($entries);
+    $processedEntries = 0;
+
+    if ($totalEntries === 0) {
+        updateJob($adminPdo, $jobId, ['progress' => 95, 'message' => 'Nenhum item válido encontrado. Finalizando...']);
+    } else {
+        updateJob($adminPdo, $jobId, ['progress' => 10, 'message' => "Iniciando importação de {$totalEntries} itens..."]);
+    }
+
+    $totalAdded = 0;
+    $totalSkipped = 0;
+    $totalErrors = 0;
+
+    $checkStmt = $pdo->prepare('SELECT id FROM streams WHERE stream_source = :src LIMIT 1');
+    $insertStmt = $pdo->prepare('
+        INSERT INTO streams (
+            type, category_id, stream_display_name, stream_source, stream_icon, year,
+            enable_transcode, read_native, direct_source, added, stream_all,
+            remove_subtitles, `order`, gen_timestamps, tv_archive_duration, target_container,
+            tv_archive_server_id, tv_archive_pid, vframes_server_id, vframes_pid,
+            movie_symlink, rtmp_output, allow_record, probesize_ondemand, llod,
+            rating, fps_restart, fps_threshold, direct_proxy, external_push, auto_restart
+        ) VALUES (
+            :type, :category_id, :name, :source, :icon, :year,
+            0, 0, :direct_source, :added, 0,
+            0, 0, 0, 0, :target_container,
+            0, 0, 0, 0,
+            0, 0, 0, 256000, 0,
+            0, 0, 90, 0, "{}", ""
+        )
+    ');
+
+    try {
+        $pdo->beginTransaction();
+
+        foreach ($entries as $entry) {
+            $url = trim($entry['url']);
+            $streamInfo = $entry['stream_info'];
+
+            $categoryType = $streamInfo['category_type'];
+            $directSource = $streamInfo['direct_source'];
+            $categoryId = getCategoryId($pdo, $entry['group_title'] ?? 'Filmes', $categoryType);
+            $streamSource = json_encode([$url], JSON_UNESCAPED_SLASHES);
+            $added = time();
+
+            try {
+                $checkStmt->execute([':src' => $streamSource]);
+                if ($checkStmt->fetch()) {
+                    $checkStmt->closeCursor();
+                    $totalSkipped++;
+                    $processedEntries++;
+                    if ($totalEntries > 0) {
+                        $progress = 10 + (int) floor(($processedEntries / $totalEntries) * 85);
+                        if ($progress > 99) {
+                            $progress = 99;
+                        }
+                        updateJob($adminPdo, $jobId, [
+                            'progress' => $progress,
+                            'message' => "Processando filmes ({$processedEntries}/{$totalEntries})...",
+                        ]);
+                    }
+                    continue;
+                }
+                $checkStmt->closeCursor();
+            } catch (PDOException $e) {
+                throw new RuntimeException('Erro ao verificar duplicata: ' . $e->getMessage());
+            }
+
+            $parsedTitle = parseMovieTitle($entry['tvg_name'] ?? '');
+            $movieTitle = $parsedTitle['title'] !== '' ? $parsedTitle['title'] : ($entry['tvg_name'] ?: 'Sem Nome');
+            $hasLegend = $parsedTitle['legendado'];
+            $movieYear = $parsedTitle['year'];
+
+            $displayName = $movieTitle !== '' ? $movieTitle : 'Sem Nome';
+            if ($hasLegend) {
+                $displayName = trim($displayName) . ' [L]';
+            }
+            $displayName = preg_replace('/\s+/', ' ', trim($displayName));
+
+            $targetContainer = determineTargetContainer($url);
+
+            try {
+                $insertStmt->execute([
+                    ':type' => $streamInfo['type'],
+                    ':category_id' => '[' . $categoryId . ']',
+                    ':name' => $displayName,
+                    ':source' => $streamSource,
+                    ':icon' => $entry['tvg_logo'] ?? '',
+                    ':year' => $movieYear !== null ? $movieYear : null,
+                    ':direct_source' => $directSource,
+                    ':added' => $added,
+                    ':target_container' => $targetContainer,
+                ]);
+                $totalAdded++;
+            } catch (PDOException $e) {
+                $errorMessage = $e->getMessage();
+                if (str_contains($errorMessage, 'Base table or view not found')) {
+                    throw new RuntimeException("A tabela 'streams' não existe no banco de dados.");
+                }
+                if (str_contains($errorMessage, 'Unknown column')) {
+                    throw new RuntimeException("A tabela 'streams' existe, mas colunas necessárias não foram encontradas.");
+                }
+                throw new RuntimeException('Erro ao inserir stream: ' . $errorMessage);
+            }
+
+            $processedEntries++;
+
+            if ($totalEntries > 0) {
+                $progress = 10 + (int) floor(($processedEntries / $totalEntries) * 85);
+                if ($progress > 99) {
+                    $progress = 99;
+                }
+                updateJob($adminPdo, $jobId, [
+                    'progress' => $progress,
+                    'message' => "Processando filmes ({$processedEntries}/{$totalEntries})...",
+                ]);
+            }
+        }
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    $summary = "Resultado:\n";
+    $summary .= "✅ Filmes adicionados: {$totalAdded}\n";
+    $summary .= "⚠️ Filmes ignorados (duplicados): {$totalSkipped}\n";
+    if ($totalErrors > 0) {
+        $summary .= "❌ Erros: {$totalErrors}\n";
+    }
+
+    return [
+        'message' => $summary,
+        'totals' => [
+            'added' => $totalAdded,
+            'skipped' => $totalSkipped,
+            'errors' => $totalErrors,
+        ],
+        'm3u_file_path' => $fullPath,
+    ];
+}
+
+$adminDbHost = '127.0.0.1';
+$adminDbName = 'joaopedro_xui';
+$adminDbUser = 'joaopedro_user';
+$adminDbPass = 'd@z[VGxj)~FNCft6';
+
+try {
+    $adminPdo = new PDO(
+        "mysql:host={$adminDbHost};dbname={$adminDbName};charset=utf8mb4",
+        $adminDbUser,
+        $adminDbPass,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+} catch (PDOException $e) {
+    logInfo('Erro ao conectar no banco administrador: ' . $e->getMessage());
+    exit(1);
+}
+
+$jobId = null;
+if (PHP_SAPI === 'cli') {
+    global $argv;
+    $jobId = isset($argv[1]) ? (int) $argv[1] : null;
+} else {
+    $jobId = isset($_REQUEST['job_id']) ? (int) $_REQUEST['job_id'] : null;
+}
+
+if (!$jobId) {
+    logInfo('job_id não informado.');
+    if (PHP_SAPI !== 'cli') {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(400);
+        echo json_encode(['error' => 'job_id é obrigatório.']);
+    }
+    exit(1);
+}
+
+$job = fetchJob($adminPdo, $jobId);
+if ($job === null) {
+    logInfo('Job não encontrado: ' . $jobId);
+    if (PHP_SAPI !== 'cli') {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(404);
+        echo json_encode(['error' => 'Job não encontrado.']);
+    }
+    exit(1);
+}
+
+if ($job['status'] === 'running') {
+    logInfo('Job já está em execução: ' . $jobId);
+    exit(0);
+}
+
+logInfo('Iniciando processamento do job ' . $jobId);
+
+try {
+    $result = processJob($adminPdo, $job, $streamTimeout);
+
+    $totals = $result['totals'];
+    updateJob($adminPdo, $jobId, [
+        'status' => 'done',
+        'progress' => 100,
+        'message' => sanitizeMessage($result['message']),
+        'total_added' => $totals['added'],
+        'total_skipped' => $totals['skipped'],
+        'total_errors' => $totals['errors'],
+        'finished_at' => date('Y-m-d H:i:s'),
+    ]);
+
+    $stmt = $adminPdo->prepare('
+        INSERT INTO clientes_import (
+            db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token,
+            last_import_status, last_import_message, last_import_at, import_count,
+            client_ip, client_user_agent
+        ) VALUES (
+            :host, :dbname, :user, :pass, :m3u_url, :m3u_file, :token,
+            :status, :msg, NOW(), :total, :ip, :ua
+        )
+    ');
+    $stmt->execute([
+        ':host' => $job['db_host'],
+        ':dbname' => $job['db_name'],
+        ':user' => $job['db_user'],
+        ':pass' => $job['db_password'],
+        ':m3u_url' => $job['m3u_url'],
+        ':m3u_file' => $result['m3u_file_path'],
+        ':token' => $job['api_token'],
+        ':status' => 'sucesso',
+        ':msg' => $result['message'],
+        ':total' => $totals['added'],
+        ':ip' => $job['client_ip'] ?? null,
+        ':ua' => $job['client_user_agent'] ?? null,
+    ]);
+
+    logInfo('Job concluído com sucesso.');
+} catch (Throwable $e) {
+    $errorMessage = sanitizeMessage('❌ Erro ao processar filmes: ' . $e->getMessage());
+    updateJob($adminPdo, $jobId, [
+        'status' => 'failed',
+        'message' => $errorMessage,
+        'progress' => 100,
+        'finished_at' => date('Y-m-d H:i:s'),
+    ]);
+
+    try {
+        $stmt = $adminPdo->prepare('
+            INSERT INTO clientes_import (
+                db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token,
+                last_import_status, last_import_message, client_ip, client_user_agent
+            ) VALUES (
+                :host, :dbname, :user, :pass, :m3u_url, :m3u_file, :token,
+                :status, :msg, :ip, :ua
+            )
+        ');
+        $stmt->execute([
+            ':host' => $job['db_host'],
+            ':dbname' => $job['db_name'],
+            ':user' => $job['db_user'],
+            ':pass' => $job['db_password'],
+            ':m3u_url' => $job['m3u_url'],
+            ':m3u_file' => $job['m3u_file_path'] ?? null,
+            ':token' => $job['api_token'],
+            ':status' => 'erro',
+            ':msg' => $errorMessage,
+            ':ip' => $job['client_ip'] ?? null,
+            ':ua' => $job['client_user_agent'] ?? null,
+        ]);
+    } catch (PDOException $logException) {
+        logInfo('Falha ao registrar erro no histórico: ' . $logException->getMessage());
+    }
+
+    logInfo('Job finalizado com erro: ' . $e->getMessage());
+    exit(1);
+}
