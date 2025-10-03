@@ -149,6 +149,54 @@ try {
 
 $jobId = (int) $adminPdo->lastInsertId();
 
+$phpBinary = PHP_BINARY ?: 'php';
+$workerScript = __DIR__ . '/worker_process_filmes.php';
+$dispatchCommand = 'nohup ' . escapeshellarg($phpBinary) . ' ' . escapeshellarg($workerScript) . ' ' . escapeshellarg((string) $jobId) . ' > /dev/null 2>&1 & echo $!';
+
+error_log('Disparando worker de filmes: ' . $dispatchCommand);
+
+try {
+    $output = [];
+    $resultCode = 0;
+    $lastLine = @exec($dispatchCommand, $output, $resultCode);
+
+    if ($resultCode !== 0 || !is_string($lastLine) || trim($lastLine) === '' || !ctype_digit(trim($lastLine))) {
+        throw new RuntimeException('Comando retornou código ' . $resultCode . ' e saída: ' . implode(' ', $output));
+    }
+
+    $workerPid = (int) trim($lastLine);
+    error_log('Worker de filmes iniciado com PID: ' . $workerPid);
+} catch (Throwable $dispatchException) {
+    $failureMessage = 'Não foi possível iniciar o processamento dos filmes. Tente novamente mais tarde.';
+
+    try {
+        $stmt = $adminPdo->prepare('
+            UPDATE clientes_import_jobs
+            SET status = :status,
+                message = :message,
+                progress = :progress,
+                finished_at = NOW(),
+                updated_at = NOW()
+            WHERE id = :id
+            LIMIT 1
+        ');
+        $stmt->execute([
+            ':status' => 'failed',
+            ':message' => $failureMessage . ' Detalhes: ' . $dispatchException->getMessage(),
+            ':progress' => 0,
+            ':id' => $jobId,
+        ]);
+    } catch (PDOException $updateException) {
+        error_log('Falha ao atualizar job após erro no dispatch: ' . $updateException->getMessage());
+    }
+
+    sendJsonResponse([
+        'job_id' => $jobId,
+        'status' => 'failed',
+        'message' => $failureMessage,
+    ], 500);
+}
+
 sendJsonResponse([
     'job_id' => $jobId,
     'status' => 'queued',
