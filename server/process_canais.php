@@ -1,5 +1,8 @@
 <?php
 
+set_time_limit(0);
+ini_set('default_socket_timeout', '300');
+
 // import.php - Recebe dados do cliente, salva M3U, insere no banco XUI e registra caminho na tabela clientes_import
 // CONFIGURAÇÃO: conexão com banco de administração (onde a tabela clientes_import está)
 $adminDbHost = '127.0.0.1';
@@ -44,8 +47,8 @@ $fullPath = $uploadDir . $filename;
 
 // ---------- BAIXAR M3U ----------
 $opts = stream_context_create([
-    'http' => ['timeout'=>15,'follow_location'=>1,'user_agent'=>'Importador-XUI/1.0'],
-    'https'=> ['timeout'=>15,'follow_location'=>1,'user_agent'=>'Importador-XUI/1.0']
+    'http' => ['timeout'=>300,'follow_location'=>1,'user_agent'=>'Importador-XUI/1.0'],
+    'https'=> ['timeout'=>300,'follow_location'=>1,'user_agent'=>'Importador-XUI/1.0']
 ]);
 
 $contents = @file_get_contents($m3uUrl, false, $opts);
