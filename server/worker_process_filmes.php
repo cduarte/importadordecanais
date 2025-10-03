@@ -432,7 +432,25 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $totalErrors = $confirmedErrors;
     $lastPersistedCheckpoint = null;
 
-    $checkStmt = $pdo->prepare('SELECT stream_id FROM stream_source_hashes WHERE stream_source_hash = :hash LIMIT 1');
+    $hashLookupStmt = $adminPdo->prepare('
+        SELECT stream_id
+        FROM clientes_import_stream_hashes
+        WHERE db_host = :host AND db_name = :name AND stream_source_hash = :hash
+        LIMIT 1
+    ');
+    $hashDeleteStmt = $adminPdo->prepare('
+        DELETE FROM clientes_import_stream_hashes
+        WHERE db_host = :host AND db_name = :name AND stream_source_hash = :hash
+        LIMIT 1
+    ');
+    $hashRegisterStmt = $adminPdo->prepare('
+        INSERT INTO clientes_import_stream_hashes (db_host, db_name, stream_id, stream_source_hash)
+        VALUES (:host, :name, :stream_id, :hash)
+        ON DUPLICATE KEY UPDATE
+            stream_id = VALUES(stream_id),
+            updated_at = CURRENT_TIMESTAMP
+    ');
+    $streamExistsStmt = $pdo->prepare('SELECT 1 FROM streams WHERE id = :id LIMIT 1');
     $insertStmt = $pdo->prepare('
         INSERT INTO streams (
             type, category_id, stream_display_name, stream_source, stream_icon, year,
@@ -449,10 +467,6 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             0, 0, 0, 256000, 0,
             0, 0, 90, 0, "{}", ""
         )
-    ');
-    $hashInsertStmt = $pdo->prepare('
-        INSERT INTO stream_source_hashes (stream_id, stream_source_hash)
-        VALUES (:stream_id, :hash)
     ');
     $deleteStreamStmt = $pdo->prepare('DELETE FROM streams WHERE id = :id LIMIT 1');
 
@@ -477,35 +491,67 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             $streamSourceHash = hash('sha256', $streamSource);
             $added = time();
 
+            $hashParams = [
+                ':host' => $host,
+                ':name' => $dbname,
+                ':hash' => $streamSourceHash,
+            ];
+
             try {
-                $checkStmt->execute([':hash' => $streamSourceHash]);
-                if ($checkStmt->fetch()) {
-                    $checkStmt->closeCursor();
-                    $totalSkipped++;
-                    $processedEntries++;
-                    $lastCheckpointMarker = createCheckpointMarker($processedEntries, $url);
-                    $latestProgressUpdate = buildProgressUpdate(
-                        $processedEntries,
-                        $totalEntries,
-                        $totalAdded,
-                        $totalSkipped,
-                        $totalErrors,
-                        $lastCheckpointMarker
-                    );
-                    if (!$inTransaction && $latestProgressUpdate !== null) {
-                        updateJob($adminPdo, $jobId, $latestProgressUpdate);
-                        $confirmedAdded = $latestProgressUpdate['total_added'];
-                        $confirmedSkipped = $latestProgressUpdate['total_skipped'];
-                        $confirmedErrors = $latestProgressUpdate['total_errors'];
-                        if ($lastCheckpointMarker !== null) {
-                            $lastPersistedCheckpoint = $lastCheckpointMarker;
-                        }
-                    }
-                    continue;
-                }
-                $checkStmt->closeCursor();
+                $hashLookupStmt->execute($hashParams);
+                $existingHash = $hashLookupStmt->fetch(PDO::FETCH_ASSOC);
+                $hashLookupStmt->closeCursor();
             } catch (PDOException $e) {
                 throw new RuntimeException('Erro ao verificar duplicata: ' . $e->getMessage());
+            }
+
+            $shouldSkip = false;
+            if ($existingHash !== false && $existingHash !== null) {
+                $shouldSkip = true;
+                $existingStreamId = $existingHash['stream_id'] !== null ? (int) $existingHash['stream_id'] : null;
+
+                if ($existingStreamId !== null && $existingStreamId > 0) {
+                    try {
+                        $streamExistsStmt->execute([':id' => $existingStreamId]);
+                        $streamStillExists = (bool) $streamExistsStmt->fetchColumn();
+                        $streamExistsStmt->closeCursor();
+                    } catch (PDOException $existsException) {
+                        throw new RuntimeException('Erro ao validar stream existente: ' . $existsException->getMessage());
+                    }
+
+                    if (!$streamStillExists) {
+                        try {
+                            $hashDeleteStmt->execute($hashParams);
+                        } catch (PDOException $deleteException) {
+                            throw new RuntimeException('Erro ao limpar hash obsoleto: ' . $deleteException->getMessage());
+                        }
+                        $shouldSkip = false;
+                    }
+                }
+            }
+
+            if ($shouldSkip) {
+                $totalSkipped++;
+                $processedEntries++;
+                $lastCheckpointMarker = createCheckpointMarker($processedEntries, $url);
+                $latestProgressUpdate = buildProgressUpdate(
+                    $processedEntries,
+                    $totalEntries,
+                    $totalAdded,
+                    $totalSkipped,
+                    $totalErrors,
+                    $lastCheckpointMarker
+                );
+                if (!$inTransaction && $latestProgressUpdate !== null) {
+                    updateJob($adminPdo, $jobId, $latestProgressUpdate);
+                    $confirmedAdded = $latestProgressUpdate['total_added'];
+                    $confirmedSkipped = $latestProgressUpdate['total_skipped'];
+                    $confirmedErrors = $latestProgressUpdate['total_errors'];
+                    if ($lastCheckpointMarker !== null) {
+                        $lastPersistedCheckpoint = $lastCheckpointMarker;
+                    }
+                }
+                continue;
             }
 
             $sourceName = $entry['tvg_name'] ?? '';
@@ -560,7 +606,9 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 }
 
                 try {
-                    $hashInsertStmt->execute([
+                    $hashRegisterStmt->execute([
+                        ':host' => $host,
+                        ':name' => $dbname,
                         ':stream_id' => $streamId,
                         ':hash' => $streamSourceHash,
                     ]);
