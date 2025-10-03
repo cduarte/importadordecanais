@@ -5,31 +5,30 @@ set_time_limit(0);
 ini_set('upload_max_filesize', '20M');
 ini_set('post_max_size', '25M');
 
-$envBaseUrl = getenv('IMPORTADOR_API_BASE_URL') ?: ($_ENV['IMPORTADOR_API_BASE_URL'] ?? null);
-$envBaseUrl = "https://45.67.136.10/~joaopedro";
+$buildLocalUrl = static function (string $script, array $params = []): string {
+    $scriptPath = $_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '';
+    $directory = str_replace('\\', '/', dirname($scriptPath));
 
-if ($envBaseUrl) {
-    $apiBaseUrl = rtrim($envBaseUrl, '/');
-} else {
-    $host = $_SERVER['HTTP_HOST']
-        ?? $_SERVER['SERVER_NAME']
-        ?? 'localhost';
-
-    $scheme = 'https';
-
-    if (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
-        $scheme = 'https';
-    } elseif (!empty($_SERVER['REQUEST_SCHEME'])) {
-        $scheme = strtolower((string) $_SERVER['REQUEST_SCHEME']) === 'https' ? 'https' : 'http';
-    } elseif (!empty($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 80) {
-        $scheme = 'http';
+    if ($directory === '/' || $directory === '\\' || $directory === '.') {
+        $directory = '';
+    } else {
+        $directory = rtrim($directory, '/');
     }
 
-    $apiBaseUrl = sprintf('%s://%s/server', $scheme, $host);
-}
+    $url = ($directory === '' ? '' : $directory) . '/' . ltrim($script, '/');
 
-$actionUrl = $apiBaseUrl . '/process_filmes.php';
-$statusUrl = $apiBaseUrl . '/process_filmes_status.php';
+    if (!empty($params)) {
+        $queryString = http_build_query($params);
+        if ($queryString !== '') {
+            $url .= '?' . $queryString;
+        }
+    }
+
+    return $url;
+};
+
+$actionUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'filmes']);
+$statusUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'filmes_status']);
 
 // manter valores preenchidos após submit
 $host = $_POST['host'] ?? '';
