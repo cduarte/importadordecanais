@@ -1,5 +1,11 @@
 <?php
 
+// ---------- VERIFICA POST ----------
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    die("Método inválido");
+}
+
 set_time_limit(0);
 
 $timeoutEnv = getenv('IMPORTADOR_M3U_TIMEOUT');
@@ -17,20 +23,6 @@ $adminDbHost = '127.0.0.1';
 $adminDbName = 'joaopedro_xui';
 $adminDbUser = 'joaopedro_user';
 $adminDbPass = 'd@z[VGxj)~FNCft6';
-
-try {
-    $adminPdo = new PDO("mysql:host={$adminDbHost};dbname={$adminDbName};charset=utf8mb4", $adminDbUser, $adminDbPass);
-    $adminPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    http_response_code(500);
-    die("!! Erro no servidor: " . $e->getMessage());
-}
-
-// ---------- VERIFICA POST ----------
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    die("Método inválido");
-}
 
 // ---------- RECEBER DADOS DO CLIENTE ----------
 $host   = trim($_POST['host'] ?? '');
@@ -56,6 +48,14 @@ if (
 if (!$host || !$dbname || !$user || !$pass || !$m3uUrl) {
     http_response_code(400);
     die("Dados incompletos. Host, Nome da base de dados, usuario, senha e URL M3U são obrigatórios.");
+}
+
+try {
+    $adminPdo = new PDO("mysql:host={$adminDbHost};dbname={$adminDbName};charset=utf8mb4", $adminDbUser, $adminDbPass);
+    $adminPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    http_response_code(500);
+    die("!! Erro no servidor: " . $e->getMessage());
 }
 
 // ---------- GERAR TOKEN ÚNICO ----------
