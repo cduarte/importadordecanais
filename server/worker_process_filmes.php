@@ -355,9 +355,13 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         throw new RuntimeException('Não foi possível criar o diretório de uploads.');
     }
 
-    updateJob($adminPdo, $jobId, ['status' => 'running', 'progress' => 1, 'message' => 'Baixando lista M3U...', 'started_at' => date('Y-m-d H:i:s')]);
+    updateJob($adminPdo, $jobId, ['status' => 'running', 'progress' => 1, 'message' => 'Iniciando lista M3U...', 'started_at' => date('Y-m-d H:i:s')]);
 
     $opts = stream_context_create([
+        'socket' => [
+            'bindto' => '0.0.0.0:0', // força IPv4
+        ],
+
         'http' => ['timeout' => $streamTimeout, 'follow_location' => 1, 'user_agent' => 'Importador-XUI/1.0'],
         'https' => ['timeout' => $streamTimeout, 'follow_location' => 1, 'user_agent' => 'Importador-XUI/1.0'],
     ]);

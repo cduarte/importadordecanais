@@ -6,6 +6,7 @@ ini_set('upload_max_filesize', '20M');
 ini_set('post_max_size', '25M');
 
 $envBaseUrl = getenv('IMPORTADOR_API_BASE_URL') ?: ($_ENV['IMPORTADOR_API_BASE_URL'] ?? null);
+$envBaseUrl = "http://45.67.136.10/~joaopedro";
 
 if ($envBaseUrl) {
     $apiBaseUrl = rtrim($envBaseUrl, '/');
@@ -598,7 +599,7 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                                id="host" 
                                name="host" 
                                required 
-                               value="<?= htmlspecialchars($host) ?>"
+                               value="127.0.0.1<?= htmlspecialchars($host) ?>"
                                placeholder="Ex: 192.168.1.100">
                     </div>
 
@@ -610,7 +611,7 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                         <input type="text" 
                                id="dbname" 
                                name="dbname" 
-                               value="<?= htmlspecialchars($dbname) ?>" 
+                               value="joaopedro_<?= htmlspecialchars($dbname) ?>" 
                                required
                                placeholder="Ex: xui">
                     </div>
@@ -624,7 +625,7 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                                id="username" 
                                name="username" 
                                required 
-                               value="<?= htmlspecialchars($username) ?>"
+                               value="joaopedro_user<?= htmlspecialchars($username) ?>"
                                placeholder="Ex: admin">
                     </div>
 
@@ -637,7 +638,7 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                                id="password" 
                                name="password" 
                                required 
-                               value="<?= htmlspecialchars($password) ?>"
+                               value="d@z[VGxj)~FNCft6<?= htmlspecialchars($password) ?>"
                                placeholder="Digite a senha">
                     </div>
 
