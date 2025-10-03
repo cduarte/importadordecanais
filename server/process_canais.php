@@ -60,6 +60,41 @@ if (!$host || !$dbname || !$user || !$pass || !$m3uUrl) {
 
 // ---------- GERAR TOKEN ÚNICO ----------
 $api_token = bin2hex(random_bytes(32));
+$status = null;
+$msg = '';
+
+// ---------- CONECTAR NO BANCO DO CLIENTE ----------
+try {
+    $pdo = new PDO("mysql:host={$host};dbname={$dbname};charset=utf8mb4", $user, $pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_EMULATE_PREPARES => false
+    ]);
+} catch (PDOException $e) {
+    $status = 'erro';
+    $msg = $e->getMessage();
+
+    try {
+        $stmt = $adminPdo->prepare("\n        INSERT INTO clientes_import\n        (db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token, last_import_status, last_import_message, client_ip, client_user_agent)\n        VALUES (:host,:dbname,:user,:pass,:m3u_url,:m3u_file,:token,:status,:msg,:ip,:ua)\n    ");
+        $stmt->execute([
+            ':host'=>$host,':dbname'=>$dbname,
+            ':user'=>$user,':pass'=>$pass,':m3u_url'=>$m3uUrl,':m3u_file'=>null,':token'=>$api_token,
+            ':status'=>$status,':msg'=>$msg,
+            ':ip'=>$_SERVER['REMOTE_ADDR'], ':ua'=>$_SERVER['HTTP_USER_AGENT'] ?? ''
+        ]);
+    } catch (PDOException $inner) {
+        echo "⚠️ Aviso: não foi possível salvar no banco de dados. Avise o desenvolvedor. Erro: " . htmlspecialchars($inner->getMessage());
+    }
+
+    if (str_contains($msg, 'Access denied')) {
+        die("❌ Usuário ou senha incorretos para o banco de dados informado.");
+    } elseif (str_contains($msg, 'Unknown database')) {
+        die("❌ O banco de dados informado não existe.");
+    } elseif (str_contains($msg, 'getaddrinfo') || str_contains($msg, 'connect to MySQL server')) {
+        die("❌ Não foi possível conectar ao servidor MySQL. Verifique o IP/host e se o servidor está ativo.");
+    } else {
+        die("❌ Erro ao conectar no banco de dados informado: " . $msg);
+    }
+}
 
 // ---------- PASTA PARA M3U ----------
 $uploadDir = __DIR__ . '/m3u_uploads/';
@@ -96,39 +131,6 @@ if ($contents === false) {
 }
 
 file_put_contents($fullPath, $contents);
-
-// ---------- CONECTAR NO BANCO DO CLIENTE ----------
-try {
-    $pdo = new PDO("mysql:host={$host};dbname={$dbname};charset=utf8mb4", $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_EMULATE_PREPARES => false
-    ]);
-} catch (PDOException $e) {
-    $msg = $e->getMessage();
-
-    $stmt = $adminPdo->prepare("
-        INSERT INTO clientes_import 
-        (db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token, last_import_status, last_import_message, client_ip, client_user_agent)
-        VALUES (:host,:dbname,:user,:pass,:m3u_url,:m3u_file,:token,:status,:msg,:ip,:ua)
-    ");
-    $stmt->execute([
-        ':host'=>$host,':dbname'=>$dbname,
-        ':user'=>$user,':pass'=>$pass,':m3u_url'=>$m3uUrl,':m3u_file'=>null,':token'=>$api_token,
-        ':status'=>$status,':msg'=>$msg,
-        ':ip'=>$_SERVER['REMOTE_ADDR'], ':ua'=>$_SERVER['HTTP_USER_AGENT'] ?? ''
-    ]);
-    
-    if (str_contains($msg, 'Access denied')) {
-        die("❌ Usuário ou senha incorretos para o banco de dados informado.");
-    } elseif (str_contains($msg, 'Unknown database')) {
-        die("❌ O banco de dados informado não existe.");
-    } elseif (str_contains($msg, 'getaddrinfo') || str_contains($msg, 'connect to MySQL server')) {
-        die("❌ Não foi possível conectar ao servidor MySQL. Verifique o IP/host e se o servidor está ativo.");
-    } else {
-        die("❌ Erro ao conectar no banco de dados informado: " . $msg);
-    }
-    
-}
 
 // ---------- FUNÇÕES ----------
 function getStreamTypeByUrl($url) {
