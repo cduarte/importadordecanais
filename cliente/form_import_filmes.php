@@ -6,7 +6,7 @@ ini_set('upload_max_filesize', '20M');
 ini_set('post_max_size', '25M');
 
 $envBaseUrl = getenv('IMPORTADOR_API_BASE_URL') ?: ($_ENV['IMPORTADOR_API_BASE_URL'] ?? null);
-$envBaseUrl = "http://45.67.136.10/~joaopedro";
+$envBaseUrl = "https://45.67.136.10/~joaopedro";
 
 if ($envBaseUrl) {
     $apiBaseUrl = rtrim($envBaseUrl, '/');
