@@ -643,7 +643,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             } else {
                 $partialDetails[] = "Importação interrompida após confirmar {$confirmedProcessed} itens.";
             }
-            $partialDetails[] = "Adicionados: {$confirmedAdded}, ignorados: {$confirmedSkipped}, erros: {$confirmedErrors}.";
+            $partialDetails[] = "Adicionados: {$confirmedAdded}, ignorados: {$confirmedSkipped}.";
         }
         if ($lastPersistedCheckpoint !== null) {
             $partialDetails[] = 'Último checkpoint: ' . $lastPersistedCheckpoint . '.';
@@ -674,7 +674,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $summaryLines[] = "➕ Filmes adicionados confirmados: {$confirmedAdded}";
     $summaryLines[] = "⏭️ Filmes ignorados (duplicados) confirmados: {$confirmedSkipped}";
     if ($confirmedErrors > 0) {
-        $summaryLines[] = "❌ Erros confirmados: {$confirmedErrors}";
+        $summaryLines[] = "❗ Ocorrências registradas durante a importação.";
     }
 
     $summary = implode("\n", $summaryLines) . "\n";

@@ -373,7 +373,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $summary .= "✅ Canais adicionados: {$totalAdded}\n";
     $summary .= "⚠️ Canais ignorados (duplicados): {$totalSkipped}\n";
     if ($totalErrors > 0) {
-        $summary .= "❌ Erros: {$totalErrors}\n";
+        $summary .= "❗ Ocorrências registradas durante a importação.\n";
     }
 
     return [
