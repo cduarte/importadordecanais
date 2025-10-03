@@ -43,14 +43,14 @@ if ($apiBaseUrl === null) {
         ?? $_SERVER['SERVER_NAME']
         ?? 'localhost';
 
-    $scheme = 'https';
+    $scheme = 'http';
 
     if (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
         $scheme = 'https';
     } elseif (!empty($_SERVER['REQUEST_SCHEME'])) {
         $scheme = strtolower((string) $_SERVER['REQUEST_SCHEME']) === 'https' ? 'https' : 'http';
-    } elseif (!empty($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 80) {
-        $scheme = 'http';
+    } elseif (!empty($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443) {
+        $scheme = 'https';
     }
 
     $scriptPath = $_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '';
