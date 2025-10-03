@@ -102,7 +102,7 @@ function parseMovieTitle(string $rawName): array
         ];
     }
 
-    $normalized = preg_replace('/(?:\s*[-\x{2013}\x{2014}]?\s*)?(?:\(|\[)?\s*(legendado|leg)\b\s*(?:\]|\))?/i', ' [L] ', $name);
+    $normalized = preg_replace('/(?:\s*[-\x{2013}\x{2014}]?\s*)?(?:\(|\[)?\s*(legendado|leg)\b\s*(?:\]|\))?/iu', ' [L] ', $name);
     $legendPattern = '/\s*(\(|\[)\s*(leg|l)\s*(\]|\))\s*/i';
     $normalized = preg_replace($legendPattern, ' [L] ', $normalized);
     $normalized = preg_replace('/\s+/', ' ', $normalized);
