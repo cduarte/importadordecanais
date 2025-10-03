@@ -36,9 +36,9 @@ $stmt = $adminPdo->prepare('SELECT * FROM clientes_import_jobs WHERE id = :id LI
 $stmt->execute([':id' => $jobId]);
 $job = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$job || ($job['job_type'] ?? null) !== 'movies') {
+if (!$job || ($job['job_type'] ?? null) !== 'channels') {
     http_response_code(404);
-    echo json_encode(['error' => 'Job de filmes não encontrado.']);
+    echo json_encode(['error' => 'Job de canais não encontrado.']);
     exit;
 }
 
