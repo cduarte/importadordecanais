@@ -29,6 +29,7 @@ ENGINE=InnoDB
 
 CREATE TABLE IF NOT EXISTS clientes_import_jobs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    job_type ENUM('movies','channels') NOT NULL DEFAULT 'movies',
     db_host VARCHAR(191) NOT NULL,
     db_name VARCHAR(191) NOT NULL,
     db_user VARCHAR(191) NOT NULL,
@@ -49,5 +50,6 @@ CREATE TABLE IF NOT EXISTS clientes_import_jobs (
     started_at DATETIME DEFAULT NULL,
     finished_at DATETIME DEFAULT NULL,
     INDEX idx_status (status),
+    INDEX idx_job_type (job_type),
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -1,434 +1,188 @@
 <?php
 
-// ---------- VERIFICA POST ----------
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    die("Método inválido");
-}
+declare(strict_types=1);
 
 set_time_limit(0);
 
-$timeoutEnv = getenv('IMPORTADOR_M3U_TIMEOUT');
-if ($timeoutEnv !== false && is_numeric($timeoutEnv) && (int)$timeoutEnv > 0) {
-    $streamTimeout = (int)$timeoutEnv;
-} else {
-    $streamTimeout = 600; // 10 minutes default to support slower transfers
+function sendJsonResponse(array $payload, int $statusCode = 200): void
+{
+    http_response_code($statusCode);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Access-Control-Allow-Origin: *');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
 }
+
+$timeoutEnv = getenv('IMPORTADOR_M3U_TIMEOUT');
+$streamTimeout = ($timeoutEnv !== false && is_numeric($timeoutEnv) && (int) $timeoutEnv > 0)
+    ? (int) $timeoutEnv
+    : 600;
 
 ini_set('default_socket_timeout', (string) $streamTimeout);
 
-// import.php - Recebe dados do cliente, salva M3U, insere no banco XUI e registra caminho na tabela clientes_import
-// CONFIGURAÇÃO: conexão com banco de administração (onde a tabela clientes_import está)
 $adminDbHost = '127.0.0.1';
 $adminDbName = 'joaopedro_xui';
 $adminDbUser = 'joaopedro_user';
 $adminDbPass = 'd@z[VGxj)~FNCft6';
 
-// ---------- RECEBER DADOS DO CLIENTE ----------
-$host   = trim($_POST['host'] ?? '');
+try {
+    $adminPdo = new PDO(
+        "mysql:host={$adminDbHost};dbname={$adminDbName};charset=utf8mb4",
+        $adminDbUser,
+        $adminDbPass,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+} catch (PDOException $e) {
+    sendJsonResponse(['error' => 'Erro no servidor: ' . $e->getMessage()], 500);
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    sendJsonResponse(['error' => 'Método inválido. Utilize POST.'], 405);
+}
+
+$host = trim($_POST['host'] ?? '');
 $dbname = trim($_POST['dbname'] ?? '');
-$user   = trim($_POST['username'] ?? '');
-$pass   = trim($_POST['password'] ?? '');
+$user = trim($_POST['username'] ?? '');
+$pass = trim($_POST['password'] ?? '');
 $m3uUrl = trim($_POST['m3u_url'] ?? '');
 
 $testCode = 'teste22';
 if (
     $host !== '' &&
     strcasecmp($host, $testCode) === 0 &&
+    strcasecmp($dbname, $testCode) === 0 &&
     strcasecmp($user, $testCode) === 0 &&
     strcasecmp($pass, $testCode) === 0
 ) {
-    $host   = $adminDbHost;
+    $host = $adminDbHost;
     $dbname = $adminDbName;
-    $user   = $adminDbUser;
-    $pass   = $adminDbPass;
+    $user = $adminDbUser;
+    $pass = $adminDbPass;
 }
 
-if (!$host || !$dbname || !$user || !$pass || !$m3uUrl) {
-    http_response_code(400);
-    die("Dados incompletos. Host, Nome da base de dados, usuario, senha e URL M3U são obrigatórios.");
+if ($host === '' || $dbname === '' || $user === '' || $pass === '' || $m3uUrl === '') {
+    sendJsonResponse(['error' => 'Dados incompletos. Host, Nome da base de dados, usuário, senha e URL M3U são obrigatórios.'], 400);
+}
+
+if (!filter_var($m3uUrl, FILTER_VALIDATE_URL)) {
+    sendJsonResponse(['error' => 'URL M3U inválida.'], 400);
 }
 
 try {
-    $adminPdo = new PDO("mysql:host={$adminDbHost};dbname={$adminDbName};charset=utf8mb4", $adminDbUser, $adminDbPass);
-    $adminPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    new PDO(
+        "mysql:host={$host};dbname={$dbname};charset=utf8mb4",
+        $user,
+        $pass,
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]
+    );
 } catch (PDOException $e) {
-    http_response_code(500);
-    die("!! Erro no servidor: " . $e->getMessage());
-}
-
-// ---------- GERAR TOKEN ÚNICO ----------
-$api_token = bin2hex(random_bytes(32));
-$status = null;
-$msg = '';
-
-// ---------- CONECTAR NO BANCO DO CLIENTE ----------
-try {
-    $pdo = new PDO("mysql:host={$host};dbname={$dbname};charset=utf8mb4", $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_EMULATE_PREPARES => false
-    ]);
-} catch (PDOException $e) {
-    $status = 'erro';
     $msg = $e->getMessage();
 
-    try {
-        $stmt = $adminPdo->prepare("\n        INSERT INTO clientes_import\n        (db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token, last_import_status, last_import_message, client_ip, client_user_agent)\n        VALUES (:host,:dbname,:user,:pass,:m3u_url,:m3u_file,:token,:status,:msg,:ip,:ua)\n    ");
-        $stmt->execute([
-            ':host'=>$host,':dbname'=>$dbname,
-            ':user'=>$user,':pass'=>$pass,':m3u_url'=>$m3uUrl,':m3u_file'=>null,':token'=>$api_token,
-            ':status'=>$status,':msg'=>$msg,
-            ':ip'=>$_SERVER['REMOTE_ADDR'], ':ua'=>$_SERVER['HTTP_USER_AGENT'] ?? ''
-        ]);
-    } catch (PDOException $inner) {
-        echo "⚠️ Aviso: não foi possível salvar no banco de dados. Avise o desenvolvedor. Erro: " . htmlspecialchars($inner->getMessage());
-    }
-
     if (str_contains($msg, 'Access denied')) {
-        die("❌ Usuário ou senha incorretos para o banco de dados informado.");
-    } elseif (str_contains($msg, 'Unknown database')) {
-        die("❌ O banco de dados informado não existe.");
-    } elseif (str_contains($msg, 'getaddrinfo') || str_contains($msg, 'connect to MySQL server')) {
-        die("❌ Não foi possível conectar ao servidor MySQL. Verifique o IP/host e se o servidor está ativo.");
-    } else {
-        die("❌ Erro ao conectar no banco de dados informado: " . $msg);
+        sendJsonResponse(['error' => 'Usuário ou senha incorretos para o banco de dados informado.'], 401);
     }
+
+    if (str_contains($msg, 'Unknown database')) {
+        sendJsonResponse(['error' => 'O banco de dados informado não existe.'], 400);
+    }
+
+    if (str_contains($msg, 'getaddrinfo') || str_contains($msg, 'connect to MySQL server')) {
+        sendJsonResponse(['error' => 'Não foi possível conectar ao servidor MySQL. Verifique o IP/host e se o servidor está ativo.'], 400);
+    }
+
+    sendJsonResponse(['error' => 'Erro ao conectar no banco de dados informado: ' . $msg], 400);
 }
 
-// ---------- PASTA PARA M3U ----------
-$uploadDir = __DIR__ . '/m3u_uploads/';
-if (!file_exists($uploadDir)) mkdir($uploadDir, 0777, true);
-$filename = 'm3u_' . time() . '_' . substr(md5($m3uUrl),0,8) . '.m3u';
-$fullPath = $uploadDir . $filename;
-
-// ---------- BAIXAR M3U ----------
-$opts = stream_context_create([
-    'socket' => [
-        'bindto' => '0.0.0.0:0', // força IPv4
-    ],
-    'http' => [
-        'timeout'    => $streamTimeout,
-        'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'header'     =>
-            "Accept: */*\r\n" .
-            "Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8\r\n" .
-            "Connection: keep-alive\r\n"
-    ],
-    'https' => [
-        'timeout'    => $streamTimeout,
-        'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'header'     =>
-            "Accept: */*\r\n" .
-            "Accept-Language: pt-BR,pt;q=0.9,en-US;q=0.8\r\n" .
-            "Connection: keep-alive\r\n"
-    ]
-]);
-
-
-
-if (download_with_redirects($m3uUrl, $fullPath, $opts, 10)) {
-    echo "Download concluído: $fullPath\n";
-} else {
-    echo "Falha ao baixar $m3uUrl\n";
-}
-
-$contents = file_get_contents($fullPath);
-
-
-if ($contents === false) {
-    $status = 'erro';
-    $msg = "❌ Erro ao processar M3U.";
-    try{    
-        $stmt = $adminPdo->prepare("
-            INSERT INTO clientes_import 
-            (db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token, last_import_status, last_import_message, client_ip, client_user_agent)
-            VALUES (:host,:dbname,:user,:pass,:m3u_url,:m3u_file,:token,:status,:msg,:ip,:ua)
-        ");
-        $stmt->execute([
-            ':host'=>$host,':dbname'=>$dbname,
-            ':user'=>$user,':pass'=>$pass,':m3u_url'=>$m3uUrl,':m3u_file'=>null,':token'=>$api_token,
-            ':status'=>$status,':msg'=>$msg,
-            ':ip'=>$_SERVER['REMOTE_ADDR'], ':ua'=>$_SERVER['HTTP_USER_AGENT'] ?? ''
-        ]);
-    } catch (PDOException $e) {
-        echo "⚠️ Aviso: não foi possível salvar no banco de dados. Avise o desenvolvedor. Erro: " . htmlspecialchars($e->getMessage());
-    }
-    die($msg);
-}
-
-
-// ---------- FUNÇÕES ----------
-function getStreamTypeByUrl($url) {
-    if (stripos($url, "/movie/") !== false) return ['type'=>2,'category_type'=>'movie','direct_source'=>1];
-    elseif (stripos($url, "/series/") !== false) return ['type'=>5,'category_type'=>'series','direct_source'=>1];
-
-    elseif (stripos($url, "/live/") !== false) return ['type'=>1,'category_type'=>'live','direct_source'=>1];
-
-    return ['type'=>1,'category_type'=>'live','direct_source'=>1];
-}
-
-function getCategoryId($pdo, $categoryName, $categoryType) {
-    static $cache = [];
-    $cacheKey = strtolower($categoryType . '|' . $categoryName);
-    if (isset($cache[$cacheKey])) {
-        return $cache[$cacheKey];
-    }
-
-    try {
-        $stmt = $pdo->prepare("SELECT id FROM streams_categories WHERE category_name=:name LIMIT 1");
-        $stmt->execute([':name'=>$categoryName]);
-        $res = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($res) {
-            $cache[$cacheKey] = $res['id'];
-            return $res['id'];
-        }
-
-        $stmt = $pdo->prepare("
-            INSERT INTO streams_categories (category_type, category_name, parent_id, cat_order, is_adult)
-            VALUES (:type,:name,0,99,0)
-        ");
-        $stmt->execute([':type'=>$categoryType,':name'=>$categoryName]);
-        $lastId = $pdo->lastInsertId();
-        $cache[$cacheKey] = $lastId;
-        return $lastId;
-    } catch (PDOException $e) {
-        $msg = $e->getMessage();
-        if (strpos($msg, 'Base table or view not found') !== false) {
-            echo "❌ A tabela 'streams_categories' não existe no banco de dados.";
-        } elseif (strpos($msg, 'Unknown column') !== false) {
-            echo "❌ A tabela 'streams_categories' existe, mas faltam colunas necessárias.";
-        } else {
-            echo "❌ Erro ao acessar a tabela 'streams_categories': " . htmlspecialchars($msg);
-        }
-        exit;
-    }
-}
-
-
-/**
- * Faz download de um arquivo com follow redirects
- *
- * @param string   $url
- * @param string   $destino
- * @param resource $context
- * @param int      $maxRedirects
- * @return bool
- */
-function download_with_redirects(string $url, string $destino, $context, int $maxRedirects = 5): bool {
-    $currentUrl = $url;
-    $redirects  = 0;
-
-    while (true) {
-        $in = @fopen($currentUrl, "rb", false, $context);
-        if (!$in) {
-            return false;
-        }
-
-        // Captura headers da resposta
-        $headers    = $http_response_header ?? [];
-        $statusLine = $headers[0] ?? '';
-        preg_match('#HTTP/\d+\.\d+\s+(\d+)#', $statusLine, $m);
-        $status = isset($m[1]) ? (int)$m[1] : 0;
-
-        // Se não for redirect, salva no destino
-        if (!in_array($status, [301, 302, 303, 307, 308], true)) {
-            $out = fopen($destino, "wb");
-            if (!$out) {
-                fclose($in);
-                return false;
-            }
-            stream_copy_to_stream($in, $out);
-            fclose($in);
-            fclose($out);
-            return true;
-        }
-
-        // Pega header Location
-        $location = null;
-        foreach ($headers as $h) {
-            if (stripos($h, 'Location:') === 0) {
-                $location = trim(substr($h, strlen('Location:')));
-                break;
-            }
-        }
-        fclose($in);
-
-        if (!$location) {
-            return false;
-        }
-
-        // Resolve URL absoluta
-        $currentUrl = resolve_relative_url($currentUrl, $location);
-
-        $redirects++;
-        if ($redirects > $maxRedirects) {
-            trigger_error("Máximo de redirects excedido", E_USER_WARNING);
-            return false;
-        }
-    }
-}
-
-/**
- * Resolve URL relativa em relação a uma base
- */
-function resolve_relative_url(string $base, string $rel): string {
-    if (parse_url($rel, PHP_URL_SCHEME) !== null) {
-        return $rel; // já é absoluta
-    }
-    $baseParts = parse_url($base);
-    $scheme = $baseParts['scheme'] ?? 'http';
-    $host   = $baseParts['host'] ?? '';
-    $port   = isset($baseParts['port']) ? ':' . $baseParts['port'] : '';
-    $path   = $baseParts['path'] ?? '/';
-
-    if (strpos($rel, '//') === 0) {
-        return $scheme . ':' . $rel;
-    }
-    if (strpos($rel, '/') === 0) {
-        return $scheme . '://' . $host . $port . $rel;
-    }
-
-    $dir = preg_replace('#/[^/]*$#', '/', $path);
-    $abs = $scheme . '://' . $host . $port . $dir . $rel;
-
-    // Normaliza ../ e ./
-    $re = ['#(/\.?/)#', '#/(?!\.\.)[^/]+/\.\./#'];
-    for ($n = 0; $n < 10; $n++) {
-        $abs = preg_replace($re, '/', $abs);
-    }
-    return $abs;
-}
-
-
-// ---------- PARSING DO M3U ----------
-$lines = file($fullPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-$tvg_name=$tvg_logo=$group_title=null;
-
-// Contadores
-$totalAdded = 0;
-$totalSkipped = 0;
-$totalErrors = 0;
-
-$checkStmt = $pdo->prepare('SELECT id FROM streams WHERE stream_source=:src LIMIT 1');
-$insertStmt = $pdo->prepare(
-    'INSERT INTO streams (type, category_id, stream_display_name, stream_source, stream_icon, enable_transcode, read_native, direct_source, added)
-                VALUES (:type, :category_id, :name, :source, :icon, 0,0,:direct_source,:added)'
-);
-
-$status = null;
-$msg = '';
+$apiToken = bin2hex(random_bytes(32));
+$clientIp = $_SERVER['REMOTE_ADDR'] ?? null;
+$clientUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
 
 try {
-    $pdo->beginTransaction();
-
-    foreach ($lines as $line) {
-        if (strpos($line,"#EXTINF:")===0){
-            preg_match('/tvg-name="(.*?)"/',$line,$nameMatch);
-            preg_match('/tvg-logo="(.*?)"/',$line,$logoMatch);
-            preg_match('/group-title="(.*?)"/',$line,$groupMatch);
-            $tvg_name = $nameMatch[1]??null;
-            $tvg_logo = $logoMatch[1]??null;
-            $group_title = $groupMatch[1]??null;
-            $parts = explode(',', $line,2);
-            $fallbackName = trim($parts[1]??'');
-            if($fallbackName!=='') $tvg_name=$fallbackName;
-            if(!$tvg_name) $tvg_name='Sem Nome';
-            if(!$group_title) $group_title='Outros';
-        } elseif (filter_var($line,FILTER_VALIDATE_URL)){
-            $url = trim($line);
-            $streamInfo = getStreamTypeByUrl($url);
-            $type=$streamInfo['type'];
-
-            if ( $type != 1) continue;  // se for diferente de canal, não processa
-
-            $categoryType=$streamInfo['category_type'];
-            $directSource=$streamInfo['direct_source'];
-
-            $category_id = getCategoryId($pdo,$group_title,$categoryType);
-            $stream_source = json_encode([$url], JSON_UNESCAPED_SLASHES);
-            $added = time();
-
-            // Verifica duplicata
-            try {
-                $checkStmt->execute([':src'=>$stream_source]);
-                if ($checkStmt->fetch()) {
-                    $checkStmt->closeCursor();
-                    $totalSkipped++;
-                    continue;
-                }
-                $checkStmt->closeCursor();
-            } catch (PDOException $e) {
-                if ($pdo->inTransaction()) {
-                    $pdo->rollBack();
-                }
-                $msg = $e->getMessage();
-
-                if (str_contains($msg, 'Base table or view not found')) {
-                    die("❌ A tabela 'streams' não existe no banco de dados informado.");
-                } elseif (str_contains($msg, 'Unknown column')) {
-                    die("❌ A tabela 'streams' existe, mas a coluna 'stream_source' não foi encontrada.");
-                } else {
-                    die("❌ Erro ao verificar duplicata: " . $msg);
-                }
-            }
-
-            try {
-                $insertStmt->execute([
-                    ':type'=>$type,
-                    ':category_id'=>$category_id,
-                    ':name'=>$tvg_name,
-                    ':source'=>$stream_source,
-                    ':icon'=>$tvg_logo,
-                    ':direct_source'=>$directSource,
-                    ':added'=>$added
-                ]);
-                $totalAdded++;
-            } catch (PDOException $e) {
-                if ($pdo->inTransaction()) {
-                    $pdo->rollBack();
-                }
-                $msg = $e->getMessage();
-                if (strpos($msg, 'Base table or view not found') !== false) {
-                    echo "❌ A tabela 'streams' não existe no banco de dados.";
-                } elseif (strpos($msg, 'Unknown column') !== false) {
-                    echo "❌ A tabela 'streams' existe, mas colunas necessárias não foram encontradas.";
-                } else {
-                    echo "❌ Erro ao inserir stream: " . htmlspecialchars($msg);
-                }
-                exit;
-            }
-        }
-    }
-
-
-    $pdo->commit();
-
-    // ---------- REGISTRAR NA TABELA clientes_import ----------
-    $status = 'sucesso';
-    $msg = "Resultado:\n";
-    $msg .= "✅ Canais adicionados: $totalAdded\n";
-    $msg .= "⚠️ Canais ignorados (duplicados): $totalSkipped\n";
-    if ($totalErrors > 0) $msg .= "❌ Erros: $totalErrors\n";
-
-    $stmt = $adminPdo->prepare("
-        INSERT INTO clientes_import 
-        (db_host, db_name, db_user, db_password, m3u_url, m3u_file_path, api_token, last_import_status, last_import_message, last_import_at, import_count, client_ip, client_user_agent)
-        VALUES (:host,:dbname,:user,:pass,:m3u_url,:m3u_file,:token,:status,:msg,NOW(),:total,:ip,:ua)
-    ");
-    $stmt->execute([
-        ':host'=>$host,':dbname'=>$dbname,
-        ':user'=>$user,':pass'=>$pass,':m3u_url'=>$m3uUrl,':m3u_file'=>$fullPath,':token'=>$api_token,
-        ':status'=>$status,':msg'=>$msg,':total'=>$totalAdded,
-        ':ip'=>$_SERVER['REMOTE_ADDR'], ':ua'=>$_SERVER['HTTP_USER_AGENT'] ?? ''
+    $checkStmt = $adminPdo->prepare('
+        SELECT id
+        FROM clientes_import_jobs
+        WHERE db_host = :host
+            AND db_name = :dbname
+            AND db_user = :user
+            AND m3u_url = :m3u_url
+            AND status = :status
+            AND job_type = :job_type
+        ORDER BY id DESC
+        LIMIT 1
+    ');
+    $checkStmt->execute([
+        ':host' => $host,
+        ':dbname' => $dbname,
+        ':user' => $user,
+        ':m3u_url' => $m3uUrl,
+        ':status' => 'running',
+        ':job_type' => 'channels',
     ]);
+    $runningJob = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
-} catch (Throwable $e) {
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
+    if ($runningJob) {
+        sendJsonResponse([
+            'error' => sprintf(
+                'Já existe um processamento de canais em andamento (#%d) para esta lista e base de dados. Aguarde a conclusão antes de enviar novamente.',
+                (int) $runningJob['id']
+            ),
+        ], 409);
     }
-    $status = 'erro';
-    $msg = '❌ Erro ao processar canais: ' . $e->getMessage();
+
+    $stmt = $adminPdo->prepare('
+        INSERT INTO clientes_import_jobs (
+            job_type,
+            db_host,
+            db_name,
+            db_user,
+            db_password,
+            m3u_url,
+            api_token,
+            status,
+            progress,
+            message,
+            client_ip,
+            client_user_agent
+        ) VALUES (
+            :job_type,
+            :host,
+            :dbname,
+            :user,
+            :pass,
+            :m3u_url,
+            :token,
+            :status,
+            :progress,
+            :message,
+            :ip,
+            :ua
+        )
+    ');
+    $stmt->execute([
+        ':job_type' => 'channels',
+        ':host' => $host,
+        ':dbname' => $dbname,
+        ':user' => $user,
+        ':pass' => $pass,
+        ':m3u_url' => $m3uUrl,
+        ':token' => $apiToken,
+        ':status' => 'queued',
+        ':progress' => 0,
+        ':message' => 'Job aguardando processamento de canais.',
+        ':ip' => $clientIp,
+        ':ua' => $clientUserAgent,
+    ]);
+} catch (PDOException $e) {
+    sendJsonResponse(['error' => 'Não foi possível registrar o job. Erro: ' . $e->getMessage()], 500);
 }
 
-echo htmlspecialchars($msg);
+$jobId = (int) $adminPdo->lastInsertId();
 
+sendJsonResponse([
+    'job_id' => $jobId,
+    'status' => 'queued',
+    'message' => 'Job de canais criado com sucesso e aguardando processamento.',
+]);

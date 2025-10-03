@@ -704,12 +704,12 @@ if (!$jobId) {
 }
 
 $job = fetchJob($adminPdo, $jobId);
-if ($job === null) {
-    logInfo('Job não encontrado: ' . $jobId);
+if ($job === null || ($job['job_type'] ?? null) !== 'movies') {
+    logInfo('Job de filmes não encontrado: ' . $jobId);
     if (PHP_SAPI !== 'cli') {
         header('Content-Type: application/json; charset=utf-8');
         http_response_code(404);
-        echo json_encode(['error' => 'Job não encontrado.']);
+        echo json_encode(['error' => 'Job de filmes não encontrado.']);
     }
     exit(1);
 }

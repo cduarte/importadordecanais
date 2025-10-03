@@ -111,6 +111,7 @@ try {
             AND db_user = :user
             AND m3u_url = :m3u_url
             AND status = :status
+            AND job_type = :job_type
         ORDER BY id DESC
         LIMIT 1
     ');
@@ -120,6 +121,7 @@ try {
         ':user' => $user,
         ':m3u_url' => $m3uUrl,
         ':status' => 'running',
+        ':job_type' => 'movies',
     ]);
     $runningJob = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -134,6 +136,7 @@ try {
 
     $stmt = $adminPdo->prepare('
         INSERT INTO clientes_import_jobs (
+            job_type,
             db_host,
             db_name,
             db_user,
@@ -146,6 +149,7 @@ try {
             client_ip,
             client_user_agent
         ) VALUES (
+            :job_type,
             :host,
             :dbname,
             :user,
@@ -160,6 +164,7 @@ try {
         )
     ');
     $stmt->execute([
+        ':job_type' => 'movies',
         ':host' => $host,
         ':dbname' => $dbname,
         ':user' => $user,
@@ -168,7 +173,7 @@ try {
         ':token' => $apiToken,
         ':status' => 'queued',
         ':progress' => 0,
-        ':message' => 'Job aguardando processamento.',
+        ':message' => 'Job aguardando processamento de filmes.',
         ':ip' => $clientIp,
         ':ua' => $clientUserAgent,
     ]);

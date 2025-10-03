@@ -8,16 +8,28 @@ Sistema profissional para importação de listas **M3U** diretamente no **XUI.ON
   Contém os arquivos da interface (frontend).  
   Nesta pasta está o formulário onde o usuário preenche os dados do banco de dados e a URL da lista M3U para realizar a importação de forma rápida e segura.
 
-- **/server**  
-  Contém os arquivos de processamento (backend).  
+- **/server**
+  Contém os arquivos de processamento (backend).
   Esses arquivos recebem as requisições enviadas pelos formulários da pasta `cliente` e realizam a lógica de importação, inserindo os canais e categorias no **XUI.ONE**.
+  Agora os jobs são enfileirados na tabela `clientes_import_jobs` com o campo `job_type` indicando se o processamento é de **filmes** ou **canais**, permitindo que cada worker atue apenas no tipo correspondente.
 
 ## ⚙️ Funcionalidades
 
 - Importação direta de listas **M3U** para o banco do XUI.ONE  
 - Categorização automática dos canais  
 - Prevenção de duplicados durante a importação  
-- Feedback em tempo real sobre o resultado do processo  
+- Feedback em tempo real sobre o resultado do processo
+
+### 👷 Workers disponíveis
+
+Execute manualmente os workers passando o `job_id` correspondente:
+
+```bash
+php server/worker_process_filmes.php <job_id>
+php server/worker_process_canais.php <job_id>
+```
+
+Cada worker valida o tipo do job antes de iniciar o processamento.
 
 ## 📝 Requisitos
 

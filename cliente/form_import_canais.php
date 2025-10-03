@@ -797,7 +797,10 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                 running: 'Processando canais',
             },
             messages: {
+                queued: 'Job de canais aguardando processamento...',
                 running: 'Processando canais...',
+                done: 'Importação de canais finalizada.',
+                jobCreated: jobId => `Job de canais #${jobId} criado com sucesso. O processamento será iniciado em breve.`,
             },
             totalsLabels: {
                 added: 'Canais adicionados',
