@@ -13,6 +13,39 @@ function sendJsonResponse(array $payload, int $statusCode = 200): void
     exit;
 }
 
+function triggerBackgroundWorker(string $workerScript, int $jobId): void
+{
+    if ($jobId <= 0) {
+        return;
+    }
+
+    $scriptPath = realpath(__DIR__ . '/' . ltrim($workerScript, '/'));
+    if ($scriptPath === false) {
+        return;
+    }
+
+    $phpBinary = PHP_BINARY !== '' ? PHP_BINARY : 'php';
+    $command = escapeshellarg($phpBinary) . ' ' . escapeshellarg($scriptPath) . ' ' . $jobId;
+
+    if (stripos(PHP_OS, 'WIN') === 0) {
+        if (function_exists('popen') && function_exists('pclose')) {
+            @pclose(@popen('start /B ' . $command, 'r'));
+        }
+        return;
+    }
+
+    $backgroundCommand = $command . ' > /dev/null 2>&1 &';
+
+    if (function_exists('exec')) {
+        @exec($backgroundCommand);
+        return;
+    }
+
+    if (function_exists('shell_exec')) {
+        @shell_exec($backgroundCommand);
+    }
+}
+
 $timeoutEnv = getenv('IMPORTADOR_M3U_TIMEOUT');
 $streamTimeout = ($timeoutEnv !== false && is_numeric($timeoutEnv) && (int) $timeoutEnv > 0)
     ? (int) $timeoutEnv
@@ -220,8 +253,10 @@ try {
 
 $jobId = (int) $adminPdo->lastInsertId();
 
+triggerBackgroundWorker('worker_process_canais.php', $jobId);
+
 sendJsonResponse([
     'job_id' => $jobId,
     'status' => 'queued',
-    'message' => 'Job de canais criado com sucesso e aguardando processamento.',
+    'message' => 'Job de canais criado com sucesso e processamento iniciado.',
 ]);
