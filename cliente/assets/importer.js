@@ -238,7 +238,10 @@
 
         async function fetchStatus(jobId) {
             try {
-                const response = await fetch(`${statusUrl}?job_id=${encodeURIComponent(jobId)}`, {
+                const statusEndpoint = new URL(statusUrl, window.location.href);
+                statusEndpoint.searchParams.set('job_id', jobId);
+
+                const response = await fetch(statusEndpoint, {
                     cache: 'no-store'
                 });
 
