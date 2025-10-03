@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS stream_source_hashes (
-    stream_id INT UNSIGNED NOT NULL,
+    stream_id INT NOT NULL,
     stream_source_hash CHAR(64) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (stream_id),
