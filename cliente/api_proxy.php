@@ -59,6 +59,8 @@ $endpointMap = [
     'canais_status' => 'process_canais_status.php',
     'filmes'        => 'process_filmes.php',
     'filmes_status' => 'process_filmes_status.php',
+    'series'        => 'process_series.php',
+    'series_status' => 'process_series_status.php',
 ];
 
 if (!array_key_exists($endpointKey, $endpointMap)) {
