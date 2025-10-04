@@ -567,20 +567,22 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         VALUES (:season, :episode, :series_id, :stream_id)
     ');
 
+    $hashContentType = 'series';
+
     $hashLookupStmt = $adminPdo->prepare('
         SELECT stream_id
         FROM clientes_import_stream_hashes
-        WHERE db_host = :host AND db_name = :name AND stream_source_hash = :hash
+        WHERE db_host = :host AND db_name = :name AND content_type = :type AND stream_source_hash = :hash
         LIMIT 1
     ');
     $hashDeleteStmt = $adminPdo->prepare('
         DELETE FROM clientes_import_stream_hashes
-        WHERE db_host = :host AND db_name = :name AND stream_source_hash = :hash
+        WHERE db_host = :host AND db_name = :name AND content_type = :type AND stream_source_hash = :hash
         LIMIT 1
     ');
     $hashRegisterStmt = $adminPdo->prepare('
-        INSERT INTO clientes_import_stream_hashes (db_host, db_name, stream_id, stream_source_hash)
-        VALUES (:host, :name, :stream_id, :hash)
+        INSERT INTO clientes_import_stream_hashes (db_host, db_name, content_type, stream_id, stream_source_hash)
+        VALUES (:host, :name, :type, :stream_id, :hash)
         ON DUPLICATE KEY UPDATE
             stream_id = VALUES(stream_id),
             updated_at = CURRENT_TIMESTAMP
@@ -658,6 +660,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             $hashParams = [
                 ':host' => $host,
                 ':name' => $dbname,
+                ':type' => $hashContentType,
                 ':hash' => $streamSourceHash,
             ];
 
@@ -734,6 +737,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 $hashRegisterStmt->execute([
                     ':host' => $host,
                     ':name' => $dbname,
+                    ':type' => $hashContentType,
                     ':stream_id' => $streamId,
                     ':hash' => $streamSourceHash,
                 ]);
