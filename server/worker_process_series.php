@@ -539,8 +539,8 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
     $categoryCache = [];
     $seriesCache = [];
-    $streamHashCache = [];
     $episodeCache = [];
+    $streamCache = [];
 
     $categoryStmt = $pdo->query('SELECT id, category_name FROM streams_categories WHERE category_type = "series"');
     while ($row = $categoryStmt->fetch(PDO::FETCH_ASSOC)) {
@@ -568,6 +568,14 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         $episodeNum = (int) ($row['episode_num'] ?? 0);
         if ($seriesId > 0 && $seasonNum >= 0 && $episodeNum >= 0) {
             $episodeCache[$seriesId . ':' . $seasonNum . ':' . $episodeNum] = true;
+        }
+    }
+
+    $streamStmt = $pdo->query('SELECT stream_source FROM streams WHERE type = 5');
+    while ($row = $streamStmt->fetch(PDO::FETCH_ASSOC)) {
+        $source = $row['stream_source'] ?? '';
+        if (is_string($source) && $source !== '') {
+            $streamCache[$source] = true;
         }
     }
 
@@ -609,28 +617,6 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         INSERT INTO streams_episodes (season_num, episode_num, series_id, stream_id)
         VALUES (:season, :episode, :series_id, :stream_id)
     ');
-
-    $hashContentType = 'series';
-
-    $hashLookupStmt = $adminPdo->prepare('
-        SELECT stream_id
-        FROM clientes_import_stream_hashes
-        WHERE db_host = :host AND db_name = :name AND content_type = :type AND stream_source_hash = :hash
-        LIMIT 1
-    ');
-    $hashDeleteStmt = $adminPdo->prepare('
-        DELETE FROM clientes_import_stream_hashes
-        WHERE db_host = :host AND db_name = :name AND content_type = :type AND stream_source_hash = :hash
-        LIMIT 1
-    ');
-    $hashRegisterStmt = $adminPdo->prepare('
-        INSERT INTO clientes_import_stream_hashes (db_host, db_name, content_type, stream_id, stream_source_hash)
-        VALUES (:host, :name, :type, :stream_id, :hash)
-        ON DUPLICATE KEY UPDATE
-            stream_id = VALUES(stream_id),
-            updated_at = CURRENT_TIMESTAMP
-    ');
-    $streamExistsStmt = $pdo->prepare('SELECT 1 FROM streams WHERE id = :id LIMIT 1');
 
     $processedEntries = 0;
     $totalAdded = 0;
@@ -698,60 +684,8 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             }
 
             $streamSource = json_encode([$url], JSON_UNESCAPED_SLASHES);
-            $streamSourceHash = hash('sha256', $streamSource);
 
-            if (isset($streamHashCache[$streamSourceHash])) {
-                $totalSkipped++;
-                $episodeCache[$episodeKey] = true;
-                continue;
-            }
-
-            $hashParams = [
-                ':host' => $host,
-                ':name' => $dbname,
-                ':type' => $hashContentType,
-                ':hash' => $streamSourceHash,
-            ];
-
-            $existingHash = null;
-            try {
-                $hashLookupStmt->execute($hashParams);
-                $existingHash = $hashLookupStmt->fetch(PDO::FETCH_ASSOC) ?: null;
-            } catch (PDOException $e) {
-                throw new RuntimeException('Erro ao verificar hash de stream: ' . $e->getMessage());
-            } finally {
-                $hashLookupStmt->closeCursor();
-            }
-
-            $shouldSkip = false;
-            if ($existingHash !== null) {
-                $existingStreamId = isset($existingHash['stream_id']) ? (int) $existingHash['stream_id'] : null;
-                $streamStillExists = false;
-
-                if ($existingStreamId !== null && $existingStreamId > 0) {
-                    try {
-                        $streamExistsStmt->execute([':id' => $existingStreamId]);
-                        $streamStillExists = (bool) $streamExistsStmt->fetchColumn();
-                    } catch (PDOException $existsException) {
-                        throw new RuntimeException('Erro ao validar stream existente: ' . $existsException->getMessage());
-                    } finally {
-                        $streamExistsStmt->closeCursor();
-                    }
-                }
-
-                if ($streamStillExists) {
-                    $shouldSkip = true;
-                    $streamHashCache[$streamSourceHash] = true;
-                } else {
-                    try {
-                        $hashDeleteStmt->execute($hashParams);
-                    } catch (PDOException $deleteException) {
-                        throw new RuntimeException('Erro ao limpar hash órfão: ' . $deleteException->getMessage());
-                    }
-                }
-            }
-
-            if ($shouldSkip) {
+            if (isset($streamCache[$streamSource])) {
                 $totalSkipped++;
                 $episodeCache[$episodeKey] = true;
                 continue;
@@ -783,18 +717,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
             $streamId = (int) $pdo->lastInsertId();
             $newEpisodeStreamIds[$streamId] = true;
-            try {
-                $hashRegisterStmt->execute([
-                    ':host' => $host,
-                    ':name' => $dbname,
-                    ':type' => $hashContentType,
-                    ':stream_id' => $streamId,
-                    ':hash' => $streamSourceHash,
-                ]);
-            } catch (PDOException $hashException) {
-                throw new RuntimeException('Erro ao registrar hash do stream: ' . $hashException->getMessage());
-            }
-            $streamHashCache[$streamSourceHash] = true;
+            $streamCache[$streamSource] = true;
 
             $insertEpisodeStmt->execute([
                 ':season' => $parsed['season'],
