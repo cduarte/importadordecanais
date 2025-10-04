@@ -59,6 +59,7 @@ set_time_limit(0);
 
 const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
 const SERIES_BATCH_SIZE = 500;
+const WATCH_REFRESH_INSERT_CHUNK_SIZE = 500;
 
 $timeoutEnv = getenv('IMPORTADOR_M3U_TIMEOUT');
 $streamTimeout = ($timeoutEnv !== false && is_numeric($timeoutEnv) && (int) $timeoutEnv > 0)
@@ -304,6 +305,42 @@ function formatBrazilianNumber(int $value): string
     return number_format($value, 0, ',', '.');
 }
 
+function insertWatchRefreshEntries(PDO $pdo, int $type, array $streamIds): void
+{
+    if (empty($streamIds)) {
+        return;
+    }
+
+    $uniqueStreamIds = array_values(array_unique(array_map('intval', $streamIds)));
+    if (empty($uniqueStreamIds)) {
+        return;
+    }
+
+    $sqlPrefix = 'INSERT INTO watch_refresh (`type`, stream_id, status) VALUES ';
+
+    foreach (array_chunk($uniqueStreamIds, WATCH_REFRESH_INSERT_CHUNK_SIZE) as $chunk) {
+        if (empty($chunk)) {
+            continue;
+        }
+
+        $placeholders = [];
+        $params = [];
+        foreach ($chunk as $streamId) {
+            $placeholders[] = '(?, ?, ?)';
+            $params[] = $type;
+            $params[] = $streamId;
+            $params[] = 0;
+        }
+
+        if (empty($placeholders)) {
+            continue;
+        }
+
+        $stmt = $pdo->prepare($sqlPrefix . implode(', ', $placeholders));
+        $stmt->execute($params);
+    }
+}
+
 function createCheckpointMarker(int $processedEntries, string $url): ?string
 {
     $normalizedUrl = trim($url);
@@ -395,8 +432,10 @@ function getSeriesId(
     int $categoryId,
     ?string $cover,
     array &$cache,
-    PDOStatement $insertStmt
+    PDOStatement $insertStmt,
+    bool &$wasCreated
 ): int {
+    $wasCreated = false;
     $title = trim($title);
     $yearKey = ($year !== null && $year > 0) ? (string) $year : '';
     $key = normalizaChave($title . '|' . $yearKey);
@@ -415,6 +454,7 @@ function getSeriesId(
 
     $id = (int) $pdo->lastInsertId();
     $cache[$key] = $id;
+    $wasCreated = true;
     return $id;
 }
 
@@ -477,6 +517,9 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     }
 
     $totalEntries = 0;
+    $newSeriesStreamIds = [];
+    $newEpisodeStreamIds = [];
+
     foreach (extractSeriesEntries($fullPath) as $entry) {
         if ($entry['episode'] === '') {
             continue;
@@ -632,6 +675,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 $serieTitle = trim($serieTitle . ' [L]');
             }
 
+            $wasNewSeries = false;
             $seriesId = getSeriesId(
                 $pdo,
                 $serieTitle,
@@ -639,8 +683,13 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 $categoryId,
                 $entry['tvg_logo'] ?? null,
                 $seriesCache,
-                $insertSeriesStmt
+                $insertSeriesStmt,
+                $wasNewSeries
             );
+
+            if ($wasNewSeries) {
+                $newSeriesStreamIds[$seriesId] = true;
+            }
 
             $episodeKey = $seriesId . ':' . $parsed['season'] . ':' . $parsed['episode'];
             if (isset($episodeCache[$episodeKey])) {
@@ -733,6 +782,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             ]);
 
             $streamId = (int) $pdo->lastInsertId();
+            $newEpisodeStreamIds[$streamId] = true;
             try {
                 $hashRegisterStmt->execute([
                     ':host' => $host,
@@ -793,6 +843,17 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
     if ($inTransaction && $pdo->inTransaction()) {
         $pdo->commit();
+        $inTransaction = false;
+    }
+
+    $seriesIdsForRefresh = array_keys($newSeriesStreamIds);
+    if (!empty($seriesIdsForRefresh)) {
+        insertWatchRefreshEntries($pdo, 2, $seriesIdsForRefresh);
+    }
+
+    $episodeStreamIdsForRefresh = array_keys($newEpisodeStreamIds);
+    if (!empty($episodeStreamIdsForRefresh)) {
+        insertWatchRefreshEntries($pdo, 3, $episodeStreamIdsForRefresh);
     }
 
     $summaryLines = [];
