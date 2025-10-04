@@ -34,32 +34,7 @@ $username = $_POST['username'] ?? '';
 $password = $_POST['password'] ?? '';
 $m3u_url = $_POST['m3u_url'] ?? '';
 
-$currentScript = basename($_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '');
-$menuItems = [
-    [
-        'label' => 'Importar Canais',
-        'script' => 'form_import_canais.php',
-        'icon' => 'fa-tv',
-    ],
-    [
-        'label' => 'Importar Filmes',
-        'script' => 'form_import_filmes.php',
-        'icon' => 'fa-film',
-    ],
-    [
-        'label' => 'Importar Séries',
-        'script' => 'form_import_series.php',
-        'icon' => 'fa-layer-group',
-    ],
-];
-
-$currentPageLabel = 'Menu';
-foreach ($menuItems as $item) {
-    if ($currentScript === $item['script']) {
-        $currentPageLabel = $item['label'];
-        break;
-    }
-}
+$currentNavKey = 'canais';
 ?>
 <!DOCTYPE html>
 <html lang="pt-PT">
@@ -791,26 +766,7 @@ foreach ($menuItems as $item) {
 </head>
 <body>
     <div class="container">
-        <header class="nav-container">
-            <div class="nav-bar">
-                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="navDrawer">
-                    <span class="sr-only">Alternar navegação</span>
-                    <span class="icon icon-hamburger"><i class="fas fa-bars"></i></span>
-                    <span class="icon icon-close"><i class="fas fa-times"></i></span>
-                </button>
-                <span class="nav-title"><?= htmlspecialchars($currentPageLabel, ENT_QUOTES, 'UTF-8'); ?></span>
-            </div>
-            <div class="nav-overlay"></div>
-            <nav class="navigation nav-drawer" id="navDrawer">
-                <?php foreach ($menuItems as $item): ?>
-                    <?php $isActive = $currentScript === $item['script']; ?>
-                    <a class="nav-link<?= $isActive ? ' active' : '' ?>" href="<?= htmlspecialchars($buildLocalUrl($item['script'])); ?>">
-                        <i class="fas <?= htmlspecialchars($item['icon']); ?>"></i>
-                        <span><?= htmlspecialchars($item['label']); ?></span>
-                    </a>
-                <?php endforeach; ?>
-            </nav>
-        </header>
+        <?php include __DIR__ . '/includes/navigation_menu.php'; ?>
 
         <header class="header">
             <h1><i class="fas fa-cloud-upload-alt"></i> Importador M3U</h1>
