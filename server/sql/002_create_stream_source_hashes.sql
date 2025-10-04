@@ -1,4 +1,0 @@
--- O controle de hashes de origem de streams foi movido para o banco administrador.
--- Utilize o script 003_create_clientes_import_stream_hashes.sql para criar a nova tabela
--- `clientes_import_stream_hashes`, garantindo unicidade por banco e hash.
--- Este arquivo é mantido apenas para referência e não deve mais ser executado no banco XUI.

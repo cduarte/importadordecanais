@@ -1,4 +1,4 @@
--- parte do banco de dados do xui que esta na maquina do cliente para saber como é a estrutura do banco de dados
+-- parte do banco de dados do xui que esta na maquina do cliente (para o chatgpt codex saber como é a estrutura do banco de dados)
 -- não pode alterar ou adicionar colunas nas tabelas do banco de dados do cliente
 -- não pode alterar e nem adicionar tabelas no banco de dados do cliente
 
