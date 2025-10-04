@@ -1,6 +1,6 @@
 # 📦 Importador M3U para XUI.ONE
 
-Sistema profissional para importação de listas **M3U** diretamente no **XUI.ONE**, com categorização automática e prevenção de duplicados.
+Sistema profissional para importação de Fonte de listas **M3U** diretamente no **XUI.ONE**, com categorização automática e prevenção de duplicados.
 
 ## 🚀 Estrutura do Projeto
 

@@ -580,7 +580,7 @@ $m3u_url = $_POST['m3u_url'] ?? '';
     <div class="container">
         <header class="header">
             <h1><i class="fas fa-cloud-upload-alt"></i> Importador M3U</h1>
-            <p>Sistema profissional para importação de <span style="background:#fff3b0;color: #000;">FILMES</span> da listas M3U diretamente para o <strong>XUI.ONE</strong>, com categorização automática.</p>
+            <p>Sistema profissional para importação de Fonte de <span style="background:#fff3b0;color: #000;">FILMES</span> diretamente para o <strong>XUI.ONE</strong>, com categorização automática.</p>
         </header>
 
         <main class="main-card">
@@ -644,7 +644,7 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                     <div class="form-group">
                         <label for="m3u_url">
                             <i class="fas fa-link"></i>
-                            URL da Lista M3U
+                            URL da Fonte
                         </label>
                         <input type="url" 
                                id="m3u_url" 
