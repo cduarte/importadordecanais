@@ -17,8 +17,14 @@ Sistema profissional para importação de Fonte de listas **M3U** diretamente no
 
 - Importação direta de listas **M3U** para o banco do XUI.ONE  
 - Categorização automática dos canais  
-- Prevenção de duplicados durante a importação  
+- Prevenção de duplicados durante a importação
 - Feedback em tempo real sobre o resultado do processo
+
+### ⚡ Estratégia de cache e deduplicação
+
+Todos os workers carregam em memória as fontes (`stream_source`) já existentes antes de iniciar cada importação. Esse cache evita
+consultas repetitivas ao banco durante o processamento e garante que duplicados sejam descartados rapidamente tanto para canais
+quanto para filmes e séries.
 
 ### 👷 Workers disponíveis
 

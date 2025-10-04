@@ -348,6 +348,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         throw new RuntimeException('Erro ao conectar no banco de dados de destino: ' . $e->getMessage());
     }
 
+    // Mantém em memória as fontes já cadastradas para acelerar a verificação de duplicados.
     $existingSources = [];
     try {
         $sourcesStmt = $pdo->query('SELECT stream_source FROM streams WHERE type = 1');

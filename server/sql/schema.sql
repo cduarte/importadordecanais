@@ -1,6 +1,3 @@
--- O controle de hashes de origem de streams esta no banco administrador.
-
-
 CREATE TABLE IF NOT EXISTS `clientes_import` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -54,19 +51,4 @@ CREATE TABLE IF NOT EXISTS `clientes_import_jobs` (
   KEY `idx_job_type` (`job_type`),
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `clientes_import_stream_hashes` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `db_host` varchar(191) NOT NULL,
-  `db_name` varchar(191) NOT NULL,
-  `content_type` enum('movie','series') NOT NULL,
-  `stream_id` int(11) DEFAULT NULL,
-  `stream_source_hash` char(64) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_client_stream_hash` (`db_host`,`db_name`,`content_type`,`stream_source_hash`),
-  KEY `idx_content_type` (`content_type`),
-  KEY `idx_stream_id` (`stream_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
 

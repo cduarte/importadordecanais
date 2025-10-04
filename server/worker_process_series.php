@@ -540,6 +540,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $categoryCache = [];
     $seriesCache = [];
     $episodeCache = [];
+    // Cache em memória das fontes dos streams existentes para evitar reprocessamento de episódios duplicados.
     $streamCache = [];
 
     $categoryStmt = $pdo->query('SELECT id, category_name FROM streams_categories WHERE category_type = "series"');
