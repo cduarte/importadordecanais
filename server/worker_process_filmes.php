@@ -524,27 +524,18 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $totalErrors = $confirmedErrors;
     $lastPersistedCheckpoint = null;
 
-    $hashContentType = 'movie';
-
-    $hashLookupStmt = $adminPdo->prepare('
-        SELECT stream_id
-        FROM clientes_import_stream_hashes
-        WHERE db_host = :host AND db_name = :name AND content_type = :type AND stream_source_hash = :hash
-        LIMIT 1
-    ');
-    $hashDeleteStmt = $adminPdo->prepare('
-        DELETE FROM clientes_import_stream_hashes
-        WHERE db_host = :host AND db_name = :name AND content_type = :type AND stream_source_hash = :hash
-        LIMIT 1
-    ');
-    $hashRegisterStmt = $adminPdo->prepare('
-        INSERT INTO clientes_import_stream_hashes (db_host, db_name, content_type, stream_id, stream_source_hash)
-        VALUES (:host, :name, :type, :stream_id, :hash)
-        ON DUPLICATE KEY UPDATE
-            stream_id = VALUES(stream_id),
-            updated_at = CURRENT_TIMESTAMP
-    ');
-    $streamExistsStmt = $pdo->prepare('SELECT 1 FROM streams WHERE id = :id LIMIT 1');
+    $streamCache = [];
+    try {
+        $streamStmt = $pdo->query('SELECT stream_source FROM streams WHERE type = 2');
+        while ($row = $streamStmt->fetch(PDO::FETCH_ASSOC)) {
+            $source = $row['stream_source'] ?? '';
+            if (is_string($source) && $source !== '') {
+                $streamCache[$source] = true;
+            }
+        }
+    } catch (PDOException $e) {
+        throw new RuntimeException('Erro ao carregar streams existentes: ' . $e->getMessage(), 0, $e);
+    }
     $insertStmt = $pdo->prepare('
         INSERT INTO streams (
             type, category_id, stream_display_name, stream_source, stream_icon, year,
@@ -562,7 +553,6 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             0, 0, 90, 0, "{}", ""
         )
     ');
-    $deleteStreamStmt = $pdo->prepare('DELETE FROM streams WHERE id = :id LIMIT 1');
 
     try {
         $inTransaction = false;
@@ -583,50 +573,8 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             $directSource = $streamInfo['direct_source'];
             $categoryId = getCategoryId($pdo, $entry['group_title'] ?? 'Filmes', $categoryType);
             $streamSource = json_encode([$url], JSON_UNESCAPED_SLASHES);
-            $streamSourceHash = hash('sha256', $streamSource);
             $added = time();
-
-            $hashParams = [
-                ':host' => $host,
-                ':name' => $dbname,
-                ':type' => $hashContentType,
-                ':hash' => $streamSourceHash,
-            ];
-
-            try {
-                $hashLookupStmt->execute($hashParams);
-                $existingHash = $hashLookupStmt->fetch(PDO::FETCH_ASSOC);
-                $hashLookupStmt->closeCursor();
-            } catch (PDOException $e) {
-                throw new RuntimeException('Erro ao verificar duplicata: ' . $e->getMessage());
-            }
-
-            $shouldSkip = false;
-            if ($existingHash !== false && $existingHash !== null) {
-                $shouldSkip = true;
-                $existingStreamId = $existingHash['stream_id'] !== null ? (int) $existingHash['stream_id'] : null;
-
-                if ($existingStreamId !== null && $existingStreamId > 0) {
-                    try {
-                        $streamExistsStmt->execute([':id' => $existingStreamId]);
-                        $streamStillExists = (bool) $streamExistsStmt->fetchColumn();
-                        $streamExistsStmt->closeCursor();
-                    } catch (PDOException $existsException) {
-                        throw new RuntimeException('Erro ao validar stream existente: ' . $existsException->getMessage());
-                    }
-
-                    if (!$streamStillExists) {
-                        try {
-                            $hashDeleteStmt->execute($hashParams);
-                        } catch (PDOException $deleteException) {
-                            throw new RuntimeException('Erro ao limpar hash obsoleto: ' . $deleteException->getMessage());
-                        }
-                        $shouldSkip = false;
-                    }
-                }
-            }
-
-            if ($shouldSkip) {
+            if (isset($streamCache[$streamSource])) {
                 $totalSkipped++;
                 $processedEntries++;
                 $lastCheckpointMarker = createCheckpointMarker($processedEntries, $url);
@@ -702,19 +650,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 }
 
                 $newStreamIds[] = $streamId;
-
-                try {
-                    $hashRegisterStmt->execute([
-                        ':host' => $host,
-                        ':name' => $dbname,
-                        ':type' => $hashContentType,
-                        ':stream_id' => $streamId,
-                        ':hash' => $streamSourceHash,
-                    ]);
-                } catch (PDOException $hashException) {
-                    $deleteStreamStmt->execute([':id' => $streamId]);
-                    throw new RuntimeException('Erro ao registrar hash do stream: ' . $hashException->getMessage());
-                }
+                $streamCache[$streamSource] = true;
 
                 $totalAdded++;
             } catch (PDOException $e) {
