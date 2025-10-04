@@ -98,6 +98,11 @@ function sanitizeMessage(string $message): string
     return substr($trimmed, 0, 2000);
 }
 
+function formatBrazilianNumber(int $value): string
+{
+    return number_format($value, 0, ',', '.');
+}
+
 function updateJob(PDO $adminPdo, int $jobId, array $fields): void
 {
     if (empty($fields)) {
@@ -270,7 +275,11 @@ function buildProgressUpdate(
         $progress = PROGRESS_MAX;
     }
 
-    $message = "Processando canais ({$processedEntries}/{$totalEntries})...";
+    $message = sprintf(
+        'Processando canais (%s/%s)...',
+        formatBrazilianNumber($processedEntries),
+        formatBrazilianNumber($totalEntries)
+    );
 
     return [
         'progress' => $progress,
@@ -351,7 +360,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     if ($totalEntries === 0) {
         updateJob($adminPdo, $jobId, ['progress' => CHANNEL_PROGRESS_END, 'message' => 'Nenhum canal válido encontrado. Finalizando...']);
     } else {
-        updateJob($adminPdo, $jobId, ['progress' => CHANNEL_PROGRESS_START, 'message' => "Iniciando importação de {$totalEntries} canais..."]);
+        updateJob($adminPdo, $jobId, ['progress' => CHANNEL_PROGRESS_START, 'message' => 'Iniciando importação de ' . formatBrazilianNumber($totalEntries) . ' canais...']);
     }
 
     $totalAdded = (int) ($job['total_added'] ?? 0);
@@ -424,8 +433,8 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     updateJob($adminPdo, $jobId, $finalUpdate);
 
     $summary = "Resultado:\n";
-    $summary .= "✅ Canais adicionados: {$totalAdded}\n";
-    $summary .= "⚠️ Canais ignorados (duplicados): {$totalSkipped}\n";
+    $summary .= '✅ Canais adicionados: ' . formatBrazilianNumber($totalAdded) . "\n";
+    $summary .= '⚠️ Canais ignorados (duplicados): ' . formatBrazilianNumber($totalSkipped) . "\n";
     if ($totalErrors > 0) {
         $summary .= "❗ Ocorrências registradas durante a importação.\n";
     }

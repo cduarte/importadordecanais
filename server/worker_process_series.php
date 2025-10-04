@@ -299,6 +299,11 @@ function parseSerieSeasonEpisode(string $rawName): ?array
     ];
 }
 
+function formatBrazilianNumber(int $value): string
+{
+    return number_format($value, 0, ',', '.');
+}
+
 function createCheckpointMarker(int $processedEntries, string $url): ?string
 {
     $normalizedUrl = trim($url);
@@ -327,7 +332,11 @@ function buildProgressUpdate(
         $progress = 99;
     }
 
-    $message = "Processando séries e episódios ({$processedEntries}/{$totalEntries})...";
+    $message = sprintf(
+        'Processando séries e episódios (%s/%s)...',
+        formatBrazilianNumber($processedEntries),
+        formatBrazilianNumber($totalEntries)
+    );
     if ($checkpointMarker !== null) {
         $message .= ' Último marcador: ' . $checkpointMarker;
     }
@@ -482,7 +491,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     if ($totalEntries === 0) {
         updateJob($adminPdo, $jobId, ['progress' => 95, 'message' => 'Nenhum episódio válido encontrado. Finalizando...']);
     } else {
-        updateJob($adminPdo, $jobId, ['progress' => 10, 'message' => "Iniciando importação de {$totalEntries} episódios..."]);
+        updateJob($adminPdo, $jobId, ['progress' => 10, 'message' => 'Iniciando importação de ' . formatBrazilianNumber($totalEntries) . ' episódios...']);
     }
 
     $categoryCache = [];
@@ -713,19 +722,27 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         $summaryLines[] = 'ℹ️ Nenhum episódio válido foi encontrado para processamento.';
     } else {
         if ($processedEntries >= $totalEntries) {
-            $summaryLines[] = "✅ Importação concluída. {$processedEntries} de {$totalEntries} episódios processados.";
+            $summaryLines[] = sprintf(
+                '✅ Importação concluída. %s de %s episódios processados.',
+                formatBrazilianNumber($processedEntries),
+                formatBrazilianNumber($totalEntries)
+            );
         } else {
-            $summaryLines[] = "⚠️ Importação concluída parcialmente. {$processedEntries} de {$totalEntries} episódios processados.";
+            $summaryLines[] = sprintf(
+                '⚠️ Importação concluída parcialmente. %s de %s episódios processados.',
+                formatBrazilianNumber($processedEntries),
+                formatBrazilianNumber($totalEntries)
+            );
             if ($lastCheckpointMarker !== null) {
                 $summaryLines[] = 'Último checkpoint: ' . $lastCheckpointMarker . '.';
             }
         }
     }
 
-    $summaryLines[] = "➕ Episódios adicionados confirmados: {$totalAdded}";
-    $summaryLines[] = "⏭️ Episódios ignorados: {$totalSkipped}";
+    $summaryLines[] = '➕ Episódios adicionados confirmados: ' . formatBrazilianNumber($totalAdded);
+    $summaryLines[] = '⏭️ Episódios ignorados: ' . formatBrazilianNumber($totalSkipped);
     if ($totalErrors > 0) {
-        $summaryLines[] = "❗ Ocorrências registradas durante a importação: {$totalErrors}.";
+        $summaryLines[] = '❗ Ocorrências registradas durante a importação: ' . formatBrazilianNumber($totalErrors) . '.';
     } else {
         $summaryLines[] = '✅ Nenhum erro registrado durante a importação.';
     }

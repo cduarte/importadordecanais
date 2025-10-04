@@ -171,7 +171,6 @@ $testCode = 'teste22';
 if (
     $host !== '' &&
     strcasecmp($host, $testCode) === 0 &&
-    strcasecmp($dbname, $testCode) === 0 &&
     strcasecmp($user, $testCode) === 0 &&
     strcasecmp($pass, $testCode) === 0
 ) {

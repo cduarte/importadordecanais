@@ -37,6 +37,18 @@
         error: { headerClass: '', icon: 'fa-triangle-exclamation' }
     };
 
+    function formatBrazilianNumber(value) {
+        if (typeof value !== 'number' || Number.isNaN(value)) {
+            return value;
+        }
+
+        try {
+            return value.toLocaleString('pt-BR');
+        } catch (error) {
+            return String(value);
+        }
+    }
+
     function createImportJobController(options) {
         if (!options || typeof options !== 'object') {
             throw new Error('createImportJobController requer um objeto de configuração.');
@@ -308,7 +320,7 @@
                     }
                     const messageAlreadyHasLabel = typeof message === 'string' && message.includes(label);
                     if (!messageAlreadyHasLabel) {
-                        totalsLines.push(`${label}: ${totals[key]}`);
+                        totalsLines.push(`${label}: ${formatBrazilianNumber(totals[key])}`);
                     }
                 }
             });

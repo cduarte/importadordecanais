@@ -78,6 +78,11 @@ function safePregReplace($pattern, $replacement, $subject): string
     return is_string($result) ? $result : (string) $result;
 }
 
+function formatBrazilianNumber(int $value): string
+{
+    return number_format($value, 0, ',', '.');
+}
+
 if (PHP_SAPI === 'cli' && function_exists('pcntl_signal') && function_exists('pcntl_alarm')) {
     pcntl_signal(SIGALRM, static function (): void {
         throw new RuntimeException('Tempo limite do worker atingido.');
@@ -391,7 +396,11 @@ function buildProgressUpdate(
         $progress = 99;
     }
 
-    $message = "Processando filmes ({$processedEntries}/{$totalEntries})...";
+    $message = sprintf(
+        'Processando filmes (%s/%s)...',
+        formatBrazilianNumber($processedEntries),
+        formatBrazilianNumber($totalEntries)
+    );
     if ($checkpointMarker !== null) {
         $message .= ' Último marcador: ' . $checkpointMarker;
     }
@@ -474,7 +483,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     if ($totalEntries === 0) {
         updateJob($adminPdo, $jobId, ['progress' => 95, 'message' => 'Nenhum item válido encontrado. Finalizando...']);
     } else {
-        updateJob($adminPdo, $jobId, ['progress' => 10, 'message' => "Iniciando importação de {$totalEntries} itens..."]);
+        updateJob($adminPdo, $jobId, ['progress' => 10, 'message' => 'Iniciando importação de ' . formatBrazilianNumber($totalEntries) . ' itens...']);
     }
 
     $confirmedAdded = isset($job['total_added']) ? (int) $job['total_added'] : 0;
@@ -740,11 +749,11 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         $partialDetails = [];
         if ($confirmedProcessed > 0) {
             if ($totalEntries > 0) {
-                $partialDetails[] = "Importação interrompida após confirmar {$confirmedProcessed} de {$totalEntries} itens.";
+                $partialDetails[] = 'Importação interrompida após confirmar ' . formatBrazilianNumber($confirmedProcessed) . ' de ' . formatBrazilianNumber($totalEntries) . ' itens.';
             } else {
-                $partialDetails[] = "Importação interrompida após confirmar {$confirmedProcessed} itens.";
+                $partialDetails[] = 'Importação interrompida após confirmar ' . formatBrazilianNumber($confirmedProcessed) . ' itens.';
             }
-            $partialDetails[] = "Adicionados: {$confirmedAdded}, ignorados: {$confirmedSkipped}.";
+            $partialDetails[] = 'Adicionados: ' . formatBrazilianNumber($confirmedAdded) . ', ignorados: ' . formatBrazilianNumber($confirmedSkipped) . '.';
         }
         if ($lastPersistedCheckpoint !== null) {
             $partialDetails[] = 'Último checkpoint: ' . $lastPersistedCheckpoint . '.';
@@ -762,9 +771,9 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         $summaryLines[] = 'ℹ️ Nenhum item válido foi encontrado para processamento.';
     } else {
         if ($confirmedProcessed >= $totalEntries) {
-            $statusLine = "✅ Importação concluída com sucesso. {$confirmedProcessed} de {$totalEntries} itens confirmados.";
+            $statusLine = '✅ Importação concluída com sucesso. ' . formatBrazilianNumber($confirmedProcessed) . ' de ' . formatBrazilianNumber($totalEntries) . ' itens confirmados.';
         } else {
-            $statusLine = "⚠️ Importação concluída parcialmente. {$confirmedProcessed} de {$totalEntries} itens confirmados.";
+            $statusLine = '⚠️ Importação concluída parcialmente. ' . formatBrazilianNumber($confirmedProcessed) . ' de ' . formatBrazilianNumber($totalEntries) . ' itens confirmados.';
             if ($lastPersistedCheckpoint !== null) {
                 $statusLine .= ' Último checkpoint: ' . $lastPersistedCheckpoint . '.';
             }
@@ -772,8 +781,8 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         $summaryLines[] = $statusLine;
     }
 
-    $summaryLines[] = "➕ Filmes adicionados confirmados: {$confirmedAdded}";
-    $summaryLines[] = "⏭️ Filmes ignorados (duplicados) confirmados: {$confirmedSkipped}";
+    $summaryLines[] = '➕ Filmes adicionados confirmados: ' . formatBrazilianNumber($confirmedAdded);
+    $summaryLines[] = '⏭️ Filmes ignorados (duplicados) confirmados: ' . formatBrazilianNumber($confirmedSkipped);
     if ($confirmedErrors > 0) {
         $summaryLines[] = "❗ Ocorrências registradas durante a importação.";
     }
