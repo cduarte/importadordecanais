@@ -594,11 +594,11 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                             <i class="fas fa-server"></i>
                             Endereço IP do Banco de Dados
                         </label>
-                        <input type="text" 
-                               id="host" 
-                               name="host" 
-                               required 
-                               value="127.0.0.1<?= htmlspecialchars($host) ?>"
+                        <input type="text"
+                               id="host"
+                               name="host"
+                               required
+                               value="<?= htmlspecialchars($host) ?>"
                                placeholder="Ex: 192.168.1.100">
                     </div>
 
@@ -607,10 +607,10 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                             <i class="fas fa-database"></i>
                             Nome do Banco de Dados
                         </label>
-                        <input type="text" 
-                               id="dbname" 
-                               name="dbname" 
-                               value="joaopedro_<?= htmlspecialchars($dbname) ?>" 
+                        <input type="text"
+                               id="dbname"
+                               name="dbname"
+                               value="<?= htmlspecialchars($dbname) ?>"
                                required
                                placeholder="Ex: xui">
                     </div>
@@ -620,11 +620,11 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                             <i class="fas fa-user"></i>
                             Usuário do Banco de Dados
                         </label>
-                        <input type="text" 
-                               id="username" 
-                               name="username" 
-                               required 
-                               value="joaopedro_user<?= htmlspecialchars($username) ?>"
+                        <input type="text"
+                               id="username"
+                               name="username"
+                               required
+                               value="<?= htmlspecialchars($username) ?>"
                                placeholder="Ex: admin">
                     </div>
 
@@ -633,11 +633,11 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                             <i class="fas fa-lock"></i>
                             Senha do Banco de Dados
                         </label>
-                        <input type="password" 
-                               id="password" 
-                               name="password" 
-                               required 
-                               value="d@z[VGxj)~FNCft6<?= htmlspecialchars($password) ?>"
+                        <input type="password"
+                               id="password"
+                               name="password"
+                               required
+                               value="<?= htmlspecialchars($password) ?>"
                                placeholder="Digite a senha">
                     </div>
 
