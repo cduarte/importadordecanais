@@ -749,7 +749,7 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                         <p>Ao final do processo, o sistema apresenta um resumo detalhado com:</p>
                         <ul>
                             <li>Número de filmes adicionados com sucesso</li>
-                            <li>filmes ignorados por já existirem</li>
+                            <li>Filmes ignorados por já existirem</li>
                             <li>Eventuais erros encontrados durante o processo</li>
                         </ul>
                     </div>
