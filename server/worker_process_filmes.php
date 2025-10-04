@@ -59,6 +59,7 @@ set_time_limit(0);
 
 const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
 const BATCH_SIZE = 200;
+const WATCH_REFRESH_INSERT_CHUNK_SIZE = 500;
 
 $timeoutEnv = getenv('IMPORTADOR_M3U_TIMEOUT');
 $streamTimeout = ($timeoutEnv !== false && is_numeric($timeoutEnv) && (int) $timeoutEnv > 0)
@@ -81,6 +82,35 @@ function safePregReplace($pattern, $replacement, $subject): string
 function formatBrazilianNumber(int $value): string
 {
     return number_format($value, 0, ',', '.');
+}
+
+function insertWatchRefreshEntries(PDO $pdo, array $streamIds): void
+{
+    if (empty($streamIds)) {
+        return;
+    }
+
+    $chunkSize = WATCH_REFRESH_INSERT_CHUNK_SIZE;
+    $sqlPrefix = 'INSERT INTO watch_refresh (`type`, stream_id, status) VALUES ';
+
+    foreach (array_chunk($streamIds, $chunkSize) as $chunk) {
+        $placeholders = [];
+        $params = [];
+
+        foreach ($chunk as $streamId) {
+            $placeholders[] = '(?, ?, ?)';
+            $params[] = 1;
+            $params[] = $streamId;
+            $params[] = 0;
+        }
+
+        $stmt = $pdo->prepare($sqlPrefix . implode(', ', $placeholders));
+        try {
+            $stmt->execute($params);
+        } catch (PDOException $e) {
+            throw new RuntimeException('Erro ao registrar dados de atualização de watch: ' . $e->getMessage(), 0, $e);
+        }
+    }
 }
 
 if (PHP_SAPI === 'cli' && function_exists('pcntl_signal') && function_exists('pcntl_alarm')) {
@@ -539,6 +569,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         $batchInsertions = 0;
         $lastCheckpointMarker = null;
         $latestProgressUpdate = null;
+        $newStreamIds = [];
 
         foreach (extractEntries($fullPath) as $entry) {
             $streamInfo = getStreamTypeByUrl($entry['url']);
@@ -670,6 +701,8 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                     throw new RuntimeException('Falha ao obter o ID do stream recém inserido.');
                 }
 
+                $newStreamIds[] = $streamId;
+
                 try {
                     $hashRegisterStmt->execute([
                         ':host' => $host,
@@ -744,6 +777,10 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             if ($lastCheckpointMarker !== null) {
                 $lastPersistedCheckpoint = $lastCheckpointMarker;
             }
+        }
+
+        if (!empty($newStreamIds)) {
+            insertWatchRefreshEntries($pdo, $newStreamIds);
         }
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
