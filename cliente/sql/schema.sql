@@ -138,3 +138,13 @@ CREATE TABLE `streams_series` (
 COLLATE='utf8mb3_general_ci'
 ENGINE=InnoDB
 ;
+
+CREATE TABLE IF NOT EXISTS `watch_refresh` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `type` int(1) DEFAULT 0,
+  `stream_id` int(16) DEFAULT 0,
+  `status` int(8) DEFAULT 0,
+  `dateadded` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
