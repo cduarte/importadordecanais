@@ -30,25 +30,7 @@ $buildLocalUrl = static function (string $script, array $params = []): string {
 $actionUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'series']);
 $statusUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'series_status']);
 
-$navItems = [
-    'canais' => [
-        'label' => 'Importar Canais',
-        'path' => 'form_import_canais.php',
-        'icon' => 'fa-tv',
-    ],
-    'filmes' => [
-        'label' => 'Importar Filmes',
-        'path' => 'form_import_filmes.php',
-        'icon' => 'fa-film',
-    ],
-    'series' => [
-        'label' => 'Importar Séries',
-        'path' => 'form_import_series.php',
-        'icon' => 'fa-layer-group',
-    ],
-];
 $currentNavKey = 'series';
-$currentPageLabel = $navItems[$currentNavKey]['label'] ?? 'Menu';
 
 
 // manter valores preenchidos após submit
@@ -781,28 +763,7 @@ $m3u_url = $_POST['m3u_url'] ?? '';
 </head>
 <body>
     <div class="container">
-        <header class="nav-container">
-            <div class="nav-bar">
-                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="navDrawer">
-                    <span class="sr-only">Alternar navegação</span>
-                    <span class="icon icon-hamburger"><i class="fas fa-bars"></i></span>
-                    <span class="icon icon-close"><i class="fas fa-times"></i></span>
-                </button>
-                <span class="nav-title"><?= htmlspecialchars($currentPageLabel, ENT_QUOTES, 'UTF-8'); ?></span>
-            </div>
-            <div class="nav-overlay"></div>
-            <nav class="navigation nav-drawer" id="navDrawer">
-                <?php foreach ($navItems as $key => $navItem):
-                    $url = $buildLocalUrl($navItem['path']);
-                    $isActive = $key === $currentNavKey;
-                ?>
-                    <a class="nav-link<?= $isActive ? ' active' : '' ?>" href="<?= htmlspecialchars($url === '' ? '/' : $url, ENT_QUOTES, 'UTF-8') ?>">
-                        <i class="fas <?= htmlspecialchars($navItem['icon'], ENT_QUOTES, 'UTF-8') ?>"></i>
-                        <?= htmlspecialchars($navItem['label'], ENT_QUOTES, 'UTF-8') ?>
-                    </a>
-                <?php endforeach; ?>
-            </nav>
-        </header>
+        <?php include __DIR__ . '/includes/navigation_menu.php'; ?>
 
         <header class="header">
             <h1><i class="fas fa-cloud-upload-alt"></i> Importador M3U</h1>
