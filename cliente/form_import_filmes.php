@@ -30,13 +30,32 @@ $buildLocalUrl = static function (string $script, array $params = []): string {
 $actionUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'filmes']);
 $statusUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'filmes_status']);
 
-$navItems = [
-    'canais' => ['label' => 'Canais', 'path' => '', 'icon' => 'fa-tv'],
-    'filmes' => ['label' => 'Filmes', 'path' => 'filmes', 'icon' => 'fa-film'],
-    'series' => ['label' => 'Series', 'path' => 'series', 'icon' => 'fa-layer-group'],
+$currentScript = basename($_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '');
+$menuItems = [
+    [
+        'label' => 'Importar Canais',
+        'script' => 'form_import_canais.php',
+        'icon' => 'fa-tv',
+    ],
+    [
+        'label' => 'Importar Filmes',
+        'script' => 'form_import_filmes.php',
+        'icon' => 'fa-film',
+    ],
+    [
+        'label' => 'Importar Séries',
+        'script' => 'form_import_series.php',
+        'icon' => 'fa-layer-group',
+    ],
 ];
-$currentNavKey = 'filmes';
-$currentPageLabel = $navItems[$currentNavKey]['label'] ?? 'Menu';
+
+$currentPageLabel = 'Menu';
+foreach ($menuItems as $item) {
+    if ($currentScript === $item['script']) {
+        $currentPageLabel = $item['label'];
+        break;
+    }
+}
 
 
 // manter valores preenchidos após submit
@@ -780,13 +799,13 @@ $m3u_url = $_POST['m3u_url'] ?? '';
             </div>
             <div class="nav-overlay"></div>
             <nav class="navigation nav-drawer" id="navDrawer">
-                <?php foreach ($navItems as $key => $navItem):
-                    $url = $buildLocalUrl($navItem['path']);
-                    $isActive = $key === $currentNavKey;
+                <?php foreach ($menuItems as $item):
+                    $url = $buildLocalUrl($item['script']);
+                    $isActive = $currentScript === $item['script'];
                 ?>
-                    <a class="nav-link<?= $isActive ? ' active' : '' ?>" href="<?= htmlspecialchars($url === '' ? '/' : $url, ENT_QUOTES, 'UTF-8') ?>">
-                        <i class="fas <?= htmlspecialchars($navItem['icon'], ENT_QUOTES, 'UTF-8') ?>"></i>
-                        <?= htmlspecialchars($navItem['label'], ENT_QUOTES, 'UTF-8') ?>
+                    <a class="nav-link<?= $isActive ? ' active' : '' ?>" href="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>">
+                        <i class="fas <?= htmlspecialchars($item['icon'], ENT_QUOTES, 'UTF-8') ?>"></i>
+                        <?= htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8') ?>
                     </a>
                 <?php endforeach; ?>
             </nav>
