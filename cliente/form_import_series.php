@@ -36,6 +36,7 @@ $navItems = [
     'series' => ['label' => 'Series', 'path' => 'series', 'icon' => 'fa-layer-group'],
 ];
 $currentNavKey = 'series';
+$currentPageLabel = $navItems[$currentNavKey]['label'] ?? 'Menu';
 
 
 // manter valores preenchidos após submit
@@ -99,40 +100,150 @@ $m3u_url = $_POST['m3u_url'] ?? '';
             padding: 2rem 1rem;
         }
 
-        .app-nav {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
+        .nav-container {
+            position: relative;
             margin-bottom: 2rem;
-            padding: 0.75rem;
+        }
+
+        .nav-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-lg);
+            padding: 0.75rem 1rem;
             box-shadow: var(--shadow-md);
         }
 
-        .app-nav__link {
+        .nav-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .nav-toggle {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .nav-toggle:hover,
+        .nav-toggle:focus-visible {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--primary-color);
+            outline: none;
+        }
+
+        .nav-toggle .icon {
+            pointer-events: none;
+            font-size: 1.25rem;
+        }
+
+        .nav-toggle .icon-close {
+            display: none;
+        }
+
+        .nav-toggle.open .icon-close {
+            display: inline;
+        }
+
+        .nav-toggle.open .icon-hamburger {
+            display: none;
+        }
+
+        .navigation {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .nav-drawer {
+            position: fixed;
+            inset: 0 auto 0 0;
+            height: 100vh;
+            width: min(280px, 80%);
+            padding: 1.5rem 1.25rem;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            box-shadow: var(--shadow-xl);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 1001;
+            overflow-y: auto;
+        }
+
+        .nav-drawer.open {
+            transform: translateX(0);
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
             gap: 0.5rem;
-            padding: 0.5rem 1.25rem;
+            padding: 1rem 1.25rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             color: var(--text-secondary);
             text-decoration: none;
             font-weight: 500;
-            transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
-        }
-
-        .app-nav__link:hover {
-            color: var(--text-primary);
-            background: rgba(59, 130, 246, 0.15);
-            transform: translateY(-1px);
-        }
-
-        .app-nav__link--active {
-            background: var(--primary-color);
-            color: var(--text-primary);
+            transition: all 0.2s ease;
             box-shadow: var(--shadow-sm);
+            width: 100%;
+        }
+
+        .nav-link i {
+            font-size: 1rem;
+        }
+
+        .nav-link:hover {
+            color: var(--primary-hover);
+            background: var(--primary-light);
+            border-color: var(--primary-hover);
+        }
+
+        .nav-link.active {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            color: #fff;
+            border-color: transparent;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .nav-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.65);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .nav-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
 
 
@@ -506,6 +617,41 @@ $m3u_url = $_POST['m3u_url'] ?? '';
             to { opacity: 1; transform: translateY(0); }
         }
 
+        @media (min-width: 768px) {
+            .nav-bar,
+            .nav-overlay {
+                display: none;
+            }
+
+            .navigation {
+                flex-direction: row;
+                justify-content: center;
+                gap: 1rem;
+                flex-wrap: wrap;
+            }
+
+            .nav-drawer {
+                position: static;
+                transform: none;
+                height: auto;
+                width: auto;
+                padding: 0.75rem;
+                border-radius: var(--radius-lg);
+                border: 1px solid var(--border-color);
+                background: var(--bg-secondary);
+                box-shadow: var(--shadow-md);
+            }
+
+            .nav-link {
+                width: auto;
+                padding: 0.5rem 1.25rem;
+            }
+
+            .nav-toggle {
+                display: none;
+            }
+        }
+
         /* Responsividade aprimorada */
         @media (max-width: 768px) {
             .container {
@@ -623,17 +769,28 @@ $m3u_url = $_POST['m3u_url'] ?? '';
 </head>
 <body>
     <div class="container">
-        <nav class="app-nav">
-            <?php foreach ($navItems as $key => $navItem):
-                $url = $buildLocalUrl($navItem['path']);
-                $isActive = $key === $currentNavKey;
-            ?>
-            <a class="app-nav__link<?= $isActive ? ' app-nav__link--active' : '' ?>" href="<?= htmlspecialchars($url === '' ? '/' : $url, ENT_QUOTES, 'UTF-8') ?>">
-                <i class="fas <?= htmlspecialchars($navItem['icon'], ENT_QUOTES, 'UTF-8') ?>"></i>
-                <?= htmlspecialchars($navItem['label'], ENT_QUOTES, 'UTF-8') ?>
-            </a>
-            <?php endforeach; ?>
-        </nav>
+        <header class="nav-container">
+            <div class="nav-bar">
+                <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="navDrawer">
+                    <span class="sr-only">Alternar navegação</span>
+                    <span class="icon icon-hamburger"><i class="fas fa-bars"></i></span>
+                    <span class="icon icon-close"><i class="fas fa-times"></i></span>
+                </button>
+                <span class="nav-title"><?= htmlspecialchars($currentPageLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+            </div>
+            <div class="nav-overlay"></div>
+            <nav class="navigation nav-drawer" id="navDrawer">
+                <?php foreach ($navItems as $key => $navItem):
+                    $url = $buildLocalUrl($navItem['path']);
+                    $isActive = $key === $currentNavKey;
+                ?>
+                    <a class="nav-link<?= $isActive ? ' active' : '' ?>" href="<?= htmlspecialchars($url === '' ? '/' : $url, ENT_QUOTES, 'UTF-8') ?>">
+                        <i class="fas <?= htmlspecialchars($navItem['icon'], ENT_QUOTES, 'UTF-8') ?>"></i>
+                        <?= htmlspecialchars($navItem['label'], ENT_QUOTES, 'UTF-8') ?>
+                    </a>
+                <?php endforeach; ?>
+            </nav>
+        </header>
 
         <header class="header">
             <h1><i class="fas fa-cloud-upload-alt"></i> Importador M3U</h1>
@@ -919,6 +1076,35 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                 this.style.borderColor = 'var(--success-color)';
             }
         });
+    </script>
+    <script>
+        (function () {
+            const navToggle = document.querySelector('.nav-toggle');
+            const navDrawer = document.querySelector('.nav-drawer');
+            const navOverlay = document.querySelector('.nav-overlay');
+
+            if (!navToggle || !navDrawer || !navOverlay) {
+                return;
+            }
+
+            const setState = (isOpen) => {
+                navDrawer.classList.toggle('open', isOpen);
+                navOverlay.classList.toggle('open', isOpen);
+                navToggle.classList.toggle('open', isOpen);
+                navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            };
+
+            navToggle.addEventListener('click', () => {
+                const isOpen = !navDrawer.classList.contains('open');
+                setState(isOpen);
+            });
+
+            navOverlay.addEventListener('click', () => setState(false));
+
+            navDrawer.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', () => setState(false));
+            });
+        })();
     </script>
 </body>
 </html>
