@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `clientes_import` (
 
 CREATE TABLE IF NOT EXISTS `clientes_import_jobs` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `job_type` enum('movies','channels') NOT NULL DEFAULT 'movies',
+  `job_type` enum('movies','channels','series') NOT NULL DEFAULT 'movies',
   `db_host` varchar(191) NOT NULL,
   `db_name` varchar(191) NOT NULL,
   `db_user` varchar(191) NOT NULL,
