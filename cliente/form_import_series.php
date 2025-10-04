@@ -580,7 +580,7 @@ $m3u_url = $_POST['m3u_url'] ?? '';
     <div class="container">
         <header class="header">
             <h1><i class="fas fa-cloud-upload-alt"></i> Importador M3U</h1>
-            <p>Sistema profissional para importação de Fonte de <span style="background:#fff3b0;color: #000;">SÉRIES E EPISÓDIOS</span> diretamente para o <strong>XUI.ONE</strong>, com categorização automática e vinculação das temporadas.</p>
+            <p>Sistema profissional para importação de Fonte de <span style="background:#fff3b0;color: #000;">SÉRIES</span> diretamente para o <strong>XUI.ONE</strong>, com categorização automática.</p>
         </header>
 
         <main class="main-card">
