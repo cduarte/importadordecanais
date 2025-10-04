@@ -27,14 +27,17 @@ $buildLocalUrl = static function (string $script, array $params = []): string {
     return $url;
 };
 
+$actionUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'canais']);
+$statusUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'canais_status']);
+
+$currentNavKey = 'canais';
+
 // manter valores preenchidos após submit
 $host = $_POST['host'] ?? '';
 $dbname = $_POST['dbname'] ?? 'xui';
 $username = $_POST['username'] ?? '';
 $password = $_POST['password'] ?? '';
 $m3u_url = $_POST['m3u_url'] ?? '';
-
-$currentNavKey = 'canais';
 ?>
 <!DOCTYPE html>
 <html lang="pt-PT">
@@ -176,14 +179,37 @@ $currentNavKey = 'canais';
             transform: translateX(0);
         }
 
-        .nav-drawer .nav-link {
-            width: 100%;
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             padding: 1rem 1.25rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+            width: 100%;
         }
 
-        .nav-drawer .nav-link.active {
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+        .nav-link i {
+            font-size: 1rem;
+        }
+
+        .nav-link:hover {
+            color: var(--primary-hover);
+            background: var(--primary-light);
+            border-color: var(--primary-hover);
+        }
+
+        .nav-link.active {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            color: #fff;
+            border-color: transparent;
+            box-shadow: var(--shadow-lg);
         }
 
         .nav-overlay {
@@ -212,39 +238,6 @@ $currentNavKey = 'canais';
             white-space: nowrap;
             border: 0;
         }
-
-        .nav-link {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.25rem;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            box-shadow: var(--shadow-md);
-        }
-
-        .nav-link i {
-            font-size: 1rem;
-        }
-
-        .nav-link:hover {
-            background: var(--primary-light);
-            color: var(--primary-hover);
-            border-color: var(--primary-hover);
-        }
-
-        .nav-link.active {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-            color: white;
-            border-color: transparent;
-            box-shadow: var(--shadow-lg);
-        }
-
 
         .header {
             text-align: center;
@@ -671,14 +664,16 @@ $currentNavKey = 'canais';
                 transform: none;
                 height: auto;
                 width: auto;
-                padding: 0;
-                border: none;
-                box-shadow: none;
+                padding: 0.75rem;
+                border-radius: var(--radius-lg);
+                border: 1px solid var(--border-color);
+                background: var(--bg-secondary);
+                box-shadow: var(--shadow-md);
             }
 
-            .nav-drawer .nav-link {
+            .nav-link {
                 width: auto;
-                padding: 0.75rem 1.25rem;
+                padding: 0.5rem 1.25rem;
             }
 
             .nav-toggle {
