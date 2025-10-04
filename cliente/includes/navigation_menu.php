@@ -2,17 +2,17 @@
 $navItems = [
     'canais' => [
         'label' => 'Importar Canais',
-        'path' => 'form_import_canais.php',
+        'path' => '',
         'icon' => 'fa-tv',
     ],
     'filmes' => [
         'label' => 'Importar Filmes',
-        'path' => 'form_import_filmes.php',
+        'path' => 'filmes',
         'icon' => 'fa-film',
     ],
     'series' => [
         'label' => 'Importar Séries',
-        'path' => 'form_import_series.php',
+        'path' => 'series',
         'icon' => 'fa-layer-group',
     ],
 ];
