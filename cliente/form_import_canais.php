@@ -610,7 +610,7 @@ $m3u_url = $_POST['m3u_url'] ?? '';
                         <input type="text" 
                                id="dbname" 
                                name="dbname" 
-                               value="<?= htmlspecialchars($dbname) ?>" 
+                               value="xui" 
                                required
                                placeholder="Ex: xui">
                     </div>
