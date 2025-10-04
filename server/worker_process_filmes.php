@@ -554,6 +554,14 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             0, 0, 90, 0, "{}", ""
         )
     ');
+    $acquireStreamLockStmt = $pdo->prepare('SELECT GET_LOCK(:lock_name, 5)');
+    $releaseStreamLockStmt = $pdo->prepare('SELECT RELEASE_LOCK(:lock_name)');
+    $findStreamStmt = $pdo->prepare('
+        SELECT id
+        FROM streams
+        WHERE stream_source = :source
+        LIMIT 1
+    ');
 
     try {
         $inTransaction = false;
@@ -599,98 +607,191 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 continue;
             }
 
-            $sourceName = $entry['tvg_name'] ?? '';
-            if (!is_string($sourceName)) {
-                $sourceName = '';
+            $lockName = 'movie_stream_' . md5($streamSource);
+            $lockAcquired = false;
+            for ($lockAttempts = 0; $lockAttempts < 3; $lockAttempts++) {
+                try {
+                    $acquireStreamLockStmt->execute([':lock_name' => $lockName]);
+                    $lockStatus = $acquireStreamLockStmt->fetchColumn();
+                    if ($lockStatus === false || $lockStatus === null) {
+                        throw new RuntimeException('GET_LOCK não está disponível para deduplicação de filmes.');
+                    }
+                    if ((int) $lockStatus === 1) {
+                        $lockAcquired = true;
+                        break;
+                    }
+                } catch (PDOException $e) {
+                    throw new RuntimeException('Erro ao obter lock de deduplicação de filmes: ' . $e->getMessage(), 0, $e);
+                }
+
+                usleep(200000);
             }
 
-            $parsedTitle = parseMovieTitle($sourceName);
-            $parsedTitleTitle = $parsedTitle['title'];
-            if (!is_string($parsedTitleTitle)) {
-                $parsedTitleTitle = '';
-            }
+            if (!$lockAcquired) {
+                try {
+                    $findStreamStmt->execute([':source' => $streamSource]);
+                    $existingStreamId = $findStreamStmt->fetchColumn();
+                } catch (PDOException $e) {
+                    throw new RuntimeException('Erro ao verificar existência de filme após falha no lock: ' . $e->getMessage(), 0, $e);
+                }
 
-            $movieTitle = $parsedTitleTitle !== '' ? $parsedTitleTitle : ($sourceName !== '' ? $sourceName : 'Sem Nome');
-            $hasLegend = $parsedTitle['legendado'];
-            $movieYear = $parsedTitle['year'];
+                if ($existingStreamId !== false) {
+                    $streamCache[$streamSource] = true;
+                    $totalSkipped++;
+                    $processedEntries++;
+                    $lastCheckpointMarker = createCheckpointMarker($processedEntries, $url);
+                    $latestProgressUpdate = buildProgressUpdate(
+                        $processedEntries,
+                        $totalEntries,
+                        $totalAdded,
+                        $totalSkipped,
+                        $totalErrors,
+                        $lastCheckpointMarker
+                    );
+                    if (!$inTransaction && $latestProgressUpdate !== null) {
+                        updateJob($adminPdo, $jobId, $latestProgressUpdate);
+                        $confirmedAdded = $latestProgressUpdate['total_added'];
+                        $confirmedSkipped = $latestProgressUpdate['total_skipped'];
+                        $confirmedErrors = $latestProgressUpdate['total_errors'];
+                        if ($lastCheckpointMarker !== null) {
+                            $lastPersistedCheckpoint = $lastCheckpointMarker;
+                        }
+                    }
+                    continue;
+                }
 
-            $displayName = $movieTitle !== '' ? $movieTitle : 'Sem Nome';
-            if (!is_string($displayName) || $displayName === '') {
-                $displayName = 'Sem Nome';
-            }
-            if ($hasLegend) {
-                $displayName = trim($displayName) . ' [L]';
-            }
-            $displayName = trim($displayName);
-            $displayName = safePregReplace('/\s+/', ' ', $displayName);
-
-            $targetContainer = determineTargetContainer($url);
-
-            if (!$inTransaction) {
-                $pdo->beginTransaction();
-                $inTransaction = true;
-                $batchInsertions = 0;
+                throw new RuntimeException('Não foi possível obter lock de deduplicação para o filme: ' . $url);
             }
 
             try {
-                $insertStmt->execute([
-                    ':type' => $streamInfo['type'],
-                    ':category_id' => '[' . $categoryId . ']',
-                    ':name' => $displayName,
-                    ':source' => $streamSource,
-                    ':icon' => $entry['tvg_logo'] ?? '',
-                    ':year' => $movieYear !== null ? $movieYear : null,
-                    ':direct_source' => $directSource,
-                    ':added' => $added,
-                    ':target_container' => $targetContainer,
-                ]);
-
-                $streamId = (int) $pdo->lastInsertId();
-                if ($streamId <= 0) {
-                    throw new RuntimeException('Falha ao obter o ID do stream recém inserido.');
+                $findStreamStmt->execute([':source' => $streamSource]);
+                $existingStreamId = $findStreamStmt->fetchColumn();
+                if ($existingStreamId !== false) {
+                    $streamCache[$streamSource] = true;
+                    $totalSkipped++;
+                    $processedEntries++;
+                    $lastCheckpointMarker = createCheckpointMarker($processedEntries, $url);
+                    $latestProgressUpdate = buildProgressUpdate(
+                        $processedEntries,
+                        $totalEntries,
+                        $totalAdded,
+                        $totalSkipped,
+                        $totalErrors,
+                        $lastCheckpointMarker
+                    );
+                    if (!$inTransaction && $latestProgressUpdate !== null) {
+                        updateJob($adminPdo, $jobId, $latestProgressUpdate);
+                        $confirmedAdded = $latestProgressUpdate['total_added'];
+                        $confirmedSkipped = $latestProgressUpdate['total_skipped'];
+                        $confirmedErrors = $latestProgressUpdate['total_errors'];
+                        if ($lastCheckpointMarker !== null) {
+                            $lastPersistedCheckpoint = $lastCheckpointMarker;
+                        }
+                    }
+                    continue;
                 }
 
-                $newStreamIds[] = $streamId;
-                $streamCache[$streamSource] = true;
-
-                $totalAdded++;
-            } catch (PDOException $e) {
-                $errorMessage = $e->getMessage();
-                if (str_contains($errorMessage, 'Base table or view not found')) {
-                    throw new RuntimeException("A tabela 'streams' não existe no banco de dados.");
+                $sourceName = $entry['tvg_name'] ?? '';
+                if (!is_string($sourceName)) {
+                    $sourceName = '';
                 }
-                if (str_contains($errorMessage, 'Unknown column')) {
-                    throw new RuntimeException("A tabela 'streams' existe, mas colunas necessárias não foram encontradas.");
+
+                $parsedTitle = parseMovieTitle($sourceName);
+                $parsedTitleTitle = $parsedTitle['title'];
+                if (!is_string($parsedTitleTitle)) {
+                    $parsedTitleTitle = '';
                 }
-                throw new RuntimeException('Erro ao inserir stream: ' . $errorMessage);
-            }
 
-            $processedEntries++;
-            $batchInsertions++;
-            $lastCheckpointMarker = createCheckpointMarker($processedEntries, $url);
-            $latestProgressUpdate = buildProgressUpdate(
-                $processedEntries,
-                $totalEntries,
-                $totalAdded,
-                $totalSkipped,
-                $totalErrors,
-                $lastCheckpointMarker
-            );
+                $movieTitle = $parsedTitleTitle !== '' ? $parsedTitleTitle : ($sourceName !== '' ? $sourceName : 'Sem Nome');
+                $hasLegend = $parsedTitle['legendado'];
+                $movieYear = $parsedTitle['year'];
 
-            if ($batchInsertions >= BATCH_SIZE) {
-                if ($pdo->inTransaction()) {
-                    $pdo->commit();
+                $displayName = $movieTitle !== '' ? $movieTitle : 'Sem Nome';
+                if (!is_string($displayName) || $displayName === '') {
+                    $displayName = 'Sem Nome';
                 }
-                $inTransaction = false;
-                $batchInsertions = 0;
+                if ($hasLegend) {
+                    $displayName = trim($displayName) . ' [L]';
+                }
+                $displayName = trim($displayName);
+                $displayName = safePregReplace('/\s+/', ' ', $displayName);
 
-                if ($latestProgressUpdate !== null) {
-                    updateJob($adminPdo, $jobId, $latestProgressUpdate);
-                    $confirmedAdded = $latestProgressUpdate['total_added'];
-                    $confirmedSkipped = $latestProgressUpdate['total_skipped'];
-                    $confirmedErrors = $latestProgressUpdate['total_errors'];
-                    if ($lastCheckpointMarker !== null) {
-                        $lastPersistedCheckpoint = $lastCheckpointMarker;
+                $targetContainer = determineTargetContainer($url);
+
+                if (!$inTransaction) {
+                    $pdo->beginTransaction();
+                    $inTransaction = true;
+                    $batchInsertions = 0;
+                }
+
+                try {
+                    $insertStmt->execute([
+                        ':type' => $streamInfo['type'],
+                        ':category_id' => '[' . $categoryId . ']',
+                        ':name' => $displayName,
+                        ':source' => $streamSource,
+                        ':icon' => $entry['tvg_logo'] ?? '',
+                        ':year' => $movieYear !== null ? $movieYear : null,
+                        ':direct_source' => $directSource,
+                        ':added' => $added,
+                        ':target_container' => $targetContainer,
+                    ]);
+
+                    $streamId = (int) $pdo->lastInsertId();
+                    if ($streamId <= 0) {
+                        throw new RuntimeException('Falha ao obter o ID do stream recém inserido.');
+                    }
+
+                    $newStreamIds[] = $streamId;
+                    $streamCache[$streamSource] = true;
+
+                    $totalAdded++;
+                } catch (PDOException $e) {
+                    $errorMessage = $e->getMessage();
+                    if (str_contains($errorMessage, 'Base table or view not found')) {
+                        throw new RuntimeException("A tabela 'streams' não existe no banco de dados.");
+                    }
+                    if (str_contains($errorMessage, 'Unknown column')) {
+                        throw new RuntimeException("A tabela 'streams' existe, mas colunas necessárias não foram encontradas.");
+                    }
+                    throw new RuntimeException('Erro ao inserir stream: ' . $errorMessage);
+                }
+
+                $processedEntries++;
+                $batchInsertions++;
+                $lastCheckpointMarker = createCheckpointMarker($processedEntries, $url);
+                $latestProgressUpdate = buildProgressUpdate(
+                    $processedEntries,
+                    $totalEntries,
+                    $totalAdded,
+                    $totalSkipped,
+                    $totalErrors,
+                    $lastCheckpointMarker
+                );
+
+                if ($batchInsertions >= BATCH_SIZE) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->commit();
+                    }
+                    $inTransaction = false;
+                    $batchInsertions = 0;
+
+                    if ($latestProgressUpdate !== null) {
+                        updateJob($adminPdo, $jobId, $latestProgressUpdate);
+                        $confirmedAdded = $latestProgressUpdate['total_added'];
+                        $confirmedSkipped = $latestProgressUpdate['total_skipped'];
+                        $confirmedErrors = $latestProgressUpdate['total_errors'];
+                        if ($lastCheckpointMarker !== null) {
+                            $lastPersistedCheckpoint = $lastCheckpointMarker;
+                        }
+                    }
+                }
+            } finally {
+                if ($lockAcquired) {
+                    try {
+                        $releaseStreamLockStmt->execute([':lock_name' => $lockName]);
+                    } catch (PDOException $lockReleaseException) {
+                        logInfo('Falha ao liberar lock de deduplicação de filmes: ' . $lockReleaseException->getMessage());
                     }
                 }
             }
