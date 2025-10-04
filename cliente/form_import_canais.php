@@ -27,15 +27,31 @@ $buildLocalUrl = static function (string $script, array $params = []): string {
     return $url;
 };
 
-$actionUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'canais']);
-$statusUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'canais_status']);
-
 // manter valores preenchidos após submit
 $host = $_POST['host'] ?? '';
 $dbname = $_POST['dbname'] ?? 'xui';
 $username = $_POST['username'] ?? '';
 $password = $_POST['password'] ?? '';
 $m3u_url = $_POST['m3u_url'] ?? '';
+
+$currentScript = basename($_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '');
+$menuItems = [
+    [
+        'label' => 'Importar Canais',
+        'script' => 'form_import_canais.php',
+        'icon' => 'fa-tv',
+    ],
+    [
+        'label' => 'Importar Filmes',
+        'script' => 'form_import_filmes.php',
+        'icon' => 'fa-film',
+    ],
+    [
+        'label' => 'Importar Séries',
+        'script' => 'form_import_series.php',
+        'icon' => 'fa-layer-group',
+    ],
+];
 ?>
 <!DOCTYPE html>
 <html lang="pt-PT">
@@ -90,6 +106,47 @@ $m3u_url = $_POST['m3u_url'] ?? '';
             margin: 0 auto;
             padding: 2rem 1rem;
         }
+
+        .navigation {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-md);
+        }
+
+        .nav-link i {
+            font-size: 1rem;
+        }
+
+        .nav-link:hover {
+            background: var(--primary-light);
+            color: var(--primary-hover);
+            border-color: var(--primary-hover);
+        }
+
+        .nav-link.active {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            color: white;
+            border-color: transparent;
+            box-shadow: var(--shadow-lg);
+        }
+
 
         .header {
             text-align: center;
@@ -578,6 +635,16 @@ $m3u_url = $_POST['m3u_url'] ?? '';
 </head>
 <body>
     <div class="container">
+        <nav class="navigation">
+            <?php foreach ($menuItems as $item): ?>
+                <?php $isActive = $currentScript === $item['script']; ?>
+                <a class="nav-link<?= $isActive ? ' active' : '' ?>" href="<?= htmlspecialchars($buildLocalUrl($item['script'])); ?>">
+                    <i class="fas <?= htmlspecialchars($item['icon']); ?>"></i>
+                    <span><?= htmlspecialchars($item['label']); ?></span>
+                </a>
+            <?php endforeach; ?>
+        </nav>
+
         <header class="header">
             <h1><i class="fas fa-cloud-upload-alt"></i> Importador M3U</h1>
             <p>Sistema profissional para importação de Fonte de <span style="background:#fff3b0;color: #000;">CANAIS</span> diretamente para o <strong>XUI.ONE</strong>, com categorização automática.</p>

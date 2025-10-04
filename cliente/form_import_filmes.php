@@ -30,6 +30,14 @@ $buildLocalUrl = static function (string $script, array $params = []): string {
 $actionUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'filmes']);
 $statusUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'filmes_status']);
 
+$navItems = [
+    'canais' => ['label' => 'Canais', 'path' => '', 'icon' => 'fa-tv'],
+    'filmes' => ['label' => 'Filmes', 'path' => 'filmes', 'icon' => 'fa-film'],
+    'series' => ['label' => 'Series', 'path' => 'series', 'icon' => 'fa-layer-group'],
+];
+$currentNavKey = 'filmes';
+
+
 // manter valores preenchidos após submit
 $host = $_POST['host'] ?? '';
 $dbname = $_POST['dbname'] ?? 'xui';
@@ -90,6 +98,43 @@ $m3u_url = $_POST['m3u_url'] ?? '';
             margin: 0 auto;
             padding: 2rem 1rem;
         }
+
+        .app-nav {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+        }
+
+        .app-nav__link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.25rem;
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+
+        .app-nav__link:hover {
+            color: var(--text-primary);
+            background: rgba(59, 130, 246, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .app-nav__link--active {
+            background: var(--primary-color);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+
 
         .header {
             text-align: center;
@@ -578,6 +623,18 @@ $m3u_url = $_POST['m3u_url'] ?? '';
 </head>
 <body>
     <div class="container">
+        <nav class="app-nav">
+            <?php foreach ($navItems as $key => $navItem):
+                $url = $buildLocalUrl($navItem['path']);
+                $isActive = $key === $currentNavKey;
+            ?>
+            <a class="app-nav__link<?= $isActive ? ' app-nav__link--active' : '' ?>" href="<?= htmlspecialchars($url === '' ? '/' : $url, ENT_QUOTES, 'UTF-8') ?>">
+                <i class="fas <?= htmlspecialchars($navItem['icon'], ENT_QUOTES, 'UTF-8') ?>"></i>
+                <?= htmlspecialchars($navItem['label'], ENT_QUOTES, 'UTF-8') ?>
+            </a>
+            <?php endforeach; ?>
+        </nav>
+
         <header class="header">
             <h1><i class="fas fa-cloud-upload-alt"></i> Importador M3U</h1>
             <p>Sistema profissional para importação de Fonte de <span style="background:#fff3b0;color: #000;">FILMES</span> diretamente para o <strong>XUI.ONE</strong>, com categorização automática.</p>
