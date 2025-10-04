@@ -348,6 +348,20 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         throw new RuntimeException('Erro ao conectar no banco de dados de destino: ' . $e->getMessage());
     }
 
+    $existingSources = [];
+    try {
+        $sourcesStmt = $pdo->query('SELECT stream_source FROM streams WHERE type = 1');
+        while (($row = $sourcesStmt->fetch(PDO::FETCH_ASSOC)) !== false) {
+            if (!isset($row['stream_source'])) {
+                continue;
+            }
+            $existingSources[(string) $row['stream_source']] = true;
+        }
+        $sourcesStmt->closeCursor();
+    } catch (PDOException $e) {
+        throw new RuntimeException('Erro ao consultar fontes de streams existentes: ' . $e->getMessage());
+    }
+
     $totalEntries = 0;
     foreach (extractChannelEntries($fullPath) as $entry) {
         $streamInfo = getStreamTypeByUrl($entry['url']);
@@ -369,7 +383,6 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
     $processedEntries = 0;
 
-    $checkStmt = $pdo->prepare('SELECT id FROM streams WHERE stream_source = :src LIMIT 1');
     $insertStmt = $pdo->prepare('
         INSERT INTO streams (
             type, category_id, stream_display_name, stream_source, stream_icon,
@@ -391,18 +404,15 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         $streamSource = json_encode([$entry['url']], JSON_UNESCAPED_SLASHES);
         $added = time();
 
-        try {
-            $checkStmt->execute([':src' => $streamSource]);
-            if ($checkStmt->fetch()) {
-                $checkStmt->closeCursor();
-                $totalSkipped++;
-            } else {
-                $checkStmt->closeCursor();
-                $displayName = $entry['tvg_name'] ?? 'Sem Nome';
-                if (!is_string($displayName) || trim($displayName) === '') {
-                    $displayName = 'Sem Nome';
-                }
+        if (isset($existingSources[$streamSource])) {
+            $totalSkipped++;
+        } else {
+            $displayName = $entry['tvg_name'] ?? 'Sem Nome';
+            if (!is_string($displayName) || trim($displayName) === '') {
+                $displayName = 'Sem Nome';
+            }
 
+            try {
                 $insertStmt->execute([
                     ':type' => 1,
                     ':category_id' => $categoryId,
@@ -412,11 +422,11 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                     ':direct_source' => 1,
                     ':added' => $added,
                 ]);
+                $existingSources[$streamSource] = true;
                 $totalAdded++;
+            } catch (PDOException $e) {
+                $totalErrors++;
             }
-        } catch (PDOException $e) {
-            $totalErrors++;
-            $checkStmt->closeCursor();
         }
 
         if ($processedEntries % CHANNEL_BATCH_UPDATE === 0) {
