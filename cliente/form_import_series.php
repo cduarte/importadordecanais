@@ -31,9 +31,21 @@ $actionUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'series']);
 $statusUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => 'series_status']);
 
 $navItems = [
-    'canais' => ['label' => 'Canais', 'path' => '', 'icon' => 'fa-tv'],
-    'filmes' => ['label' => 'Filmes', 'path' => 'filmes', 'icon' => 'fa-film'],
-    'series' => ['label' => 'Series', 'path' => 'series', 'icon' => 'fa-layer-group'],
+    'canais' => [
+        'label' => 'Importar Canais',
+        'path' => 'form_import_canais.php',
+        'icon' => 'fa-tv',
+    ],
+    'filmes' => [
+        'label' => 'Importar Filmes',
+        'path' => 'form_import_filmes.php',
+        'icon' => 'fa-film',
+    ],
+    'series' => [
+        'label' => 'Importar Séries',
+        'path' => 'form_import_series.php',
+        'icon' => 'fa-layer-group',
+    ],
 ];
 $currentNavKey = 'series';
 $currentPageLabel = $navItems[$currentNavKey]['label'] ?? 'Menu';
