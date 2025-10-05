@@ -118,6 +118,15 @@ https://45.67.136.10/~joaopedro/process_filmes.php
 
 Algumas listas M3U podem demorar vários minutos para serem transferidas. O backend respeita a variável de ambiente `IMPORTADOR_M3U_TIMEOUT` (em segundos) para definir o tempo limite utilizado ao baixar a lista e para o `default_socket_timeout` do PHP. Caso não seja definido, o sistema utiliza 600 segundos (10 minutos). Ajuste esse valor conforme a velocidade do servidor de origem e o tamanho da lista.
 
+### 📦 Controlando o tamanho dos lotes de importação
+
+Os workers `worker_process_filmes.php` e `worker_process_series.php` confirmam as inserções em lote para reduzir a fragmentação e o overhead de transações. É possível ajustar o volume de registros processados antes de cada confirmação por meio das variáveis de ambiente:
+
+- `IMPORTADOR_BATCH_SIZE_FILMES` → padrão **1000** itens por lote para filmes.
+- `IMPORTADOR_BATCH_SIZE_SERIES` → padrão **2000** itens por lote para séries.
+
+Valores mais altos reduzem commits intermediários e melhoram o throughput, mas exigem mais memória e mantêm transações abertas por mais tempo. Ajuste conforme a capacidade do servidor e os limites do banco de dados para evitar bloqueios prolongados.
+
 ### 🖥️ Selecionando o binário PHP CLI
 
 Quando o `process_canais.php` ou `process_filmes.php` são executados a partir de um ambiente que não seja CLI (por exemplo, `php-fpm`), os scripts precisam chamar os workers em background com um binário de linha de comando. Caso o PHP detecte que está rodando fora do CLI, ele tentará utilizar automaticamente:

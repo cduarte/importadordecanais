@@ -58,8 +58,36 @@ importador_load_env();
 set_time_limit(0);
 
 const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
-const SERIES_BATCH_SIZE = 500;
 const WATCH_REFRESH_INSERT_CHUNK_SIZE = 500;
+
+if (!function_exists('importador_resolve_batch_size')) {
+    function importador_resolve_batch_size(string $envKey, int $default): int
+    {
+        $value = getenv($envKey);
+        if ($value === false) {
+            return max(1, $default);
+        }
+
+        if (is_numeric($value)) {
+            $intValue = (int) $value;
+            return $intValue > 0 ? $intValue : max(1, $default);
+        }
+
+        return max(1, $default);
+    }
+}
+
+if (!function_exists('importador_series_batch_size')) {
+    function importador_series_batch_size(): int
+    {
+        static $batchSize;
+        if ($batchSize === null) {
+            $batchSize = importador_resolve_batch_size('IMPORTADOR_BATCH_SIZE_SERIES', 2000);
+        }
+
+        return $batchSize;
+    }
+}
 
 $timeoutEnv = getenv('IMPORTADOR_M3U_TIMEOUT');
 $streamTimeout = ($timeoutEnv !== false && is_numeric($timeoutEnv) && (int) $timeoutEnv > 0)
@@ -781,7 +809,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             }
             continue;
         } finally {
-            if ($batchCount >= SERIES_BATCH_SIZE && $inTransaction) {
+            if ($batchCount >= importador_series_batch_size() && $inTransaction) {
                 $pdo->commit();
                 $inTransaction = false;
                 $batchCount = 0;
