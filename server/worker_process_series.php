@@ -616,18 +616,23 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         throw new RuntimeException('Erro ao conectar no banco de dados de destino: ' . $e->getMessage());
     }
 
+    $entriesToProcess = [];
     $totalEntries = 0;
     $newSeriesStreamIds = [];
     $newEpisodeStreamIds = [];
 
     foreach (extractSeriesEntries($fullPath) as $entry) {
-        if ($entry['episode'] === '') {
+        if (($entry['episode'] ?? '') === '') {
             continue;
         }
+
         $streamInfo = getStreamTypeByUrl($entry['url']);
         if ($streamInfo === null) {
             continue;
         }
+
+        $entry['stream_info'] = $streamInfo;
+        $entriesToProcess[] = $entry;
         $totalEntries++;
     }
 
@@ -737,15 +742,12 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $inTransaction = false;
     $batchCount = 0;
 
-    foreach (extractSeriesEntries($fullPath) as $entry) {
-        if ($entry['episode'] === '') {
+    foreach ($entriesToProcess as $entry) {
+        if (($entry['episode'] ?? '') === '' || !isset($entry['stream_info'])) {
             continue;
         }
 
-        $streamInfo = getStreamTypeByUrl($entry['url']);
-        if ($streamInfo === null) {
-            continue;
-        }
+        $streamInfo = $entry['stream_info'];
 
         $processedEntries++;
         $url = trim($entry['url']);
@@ -906,6 +908,8 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             }
         }
     }
+
+    unset($entriesToProcess);
 
     if (!$progressUpdateSentWithTotals) {
         $finalProgressUpdate = buildProgressUpdate(
