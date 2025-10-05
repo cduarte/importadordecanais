@@ -528,7 +528,7 @@ function markEpisodeInCache(array &$episodeCache, int $seriesId, int $season, in
 
 function streamSourceExists(PDOStatement $stmt, array &$streamCache, string $streamSource): bool
 {
-    if (isset($streamCache[$streamSource])) {
+    if (array_key_exists($streamSource, $streamCache)) {
         return $streamCache[$streamSource];
     }
 
@@ -646,7 +646,54 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $seriesCache = [];
     $episodeCache = [];
     // Cache em memória das fontes dos streams existentes para evitar reprocessamento de episódios duplicados.
-    $streamCache = [];
+    $pendingStreamSources = [];
+    foreach ($entriesToProcess as $entry) {
+        if (($entry['episode'] ?? '') === '' || !isset($entry['stream_info'])) {
+            continue;
+        }
+
+        $url = trim((string) ($entry['url'] ?? ''));
+        if ($url === '') {
+            continue;
+        }
+
+        $encoded = json_encode([$url], JSON_UNESCAPED_SLASHES);
+        if (!is_string($encoded) || $encoded === '') {
+            continue;
+        }
+
+        $pendingStreamSources[$encoded] = true;
+    }
+
+    if (!empty($pendingStreamSources)) {
+        $streamCache = array_fill_keys(array_keys($pendingStreamSources), false);
+        $pendingStreamSourcesList = array_keys($pendingStreamSources);
+        $chunkSize = 1000;
+
+        foreach (array_chunk($pendingStreamSourcesList, $chunkSize) as $chunk) {
+            if (empty($chunk)) {
+                continue;
+            }
+
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $sql = 'SELECT stream_source FROM streams WHERE type = 5 AND stream_source IN (' . $placeholders . ')';
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($chunk);
+
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $source = $row['stream_source'] ?? null;
+                if (!is_string($source) || $source === '') {
+                    continue;
+                }
+
+                $streamCache[$source] = true;
+            }
+
+            $stmt->closeCursor();
+        }
+    } else {
+        $streamCache = [];
+    }
 
     $categoryStmt = $pdo->query('SELECT id, category_name FROM streams_categories WHERE category_type = "series"');
     while ($row = $categoryStmt->fetch(PDO::FETCH_ASSOC)) {
