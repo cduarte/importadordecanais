@@ -667,22 +667,16 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
     if (!empty($pendingStreamSources)) {
         $streamCache = array_fill_keys(array_keys($pendingStreamSources), false);
-        $pendingStreamSourcesList = array_keys($pendingStreamSources);
-        $chunkSize = 1000;
 
-        foreach (array_chunk($pendingStreamSourcesList, $chunkSize) as $chunk) {
-            if (empty($chunk)) {
-                continue;
-            }
+        $stmt = $pdo->query('SELECT stream_source FROM streams WHERE type = 5');
+        if ($stmt instanceof PDOStatement) {
+            while (true) {
+                $source = $stmt->fetch(PDO::FETCH_COLUMN);
+                if ($source === false) {
+                    break;
+                }
 
-            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
-            $sql = 'SELECT stream_source FROM streams WHERE type = 5 AND stream_source IN (' . $placeholders . ')';
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute($chunk);
-
-            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $source = $row['stream_source'] ?? null;
-                if (!is_string($source) || $source === '') {
+                if (!is_string($source) || $source === '' || !array_key_exists($source, $streamCache)) {
                     continue;
                 }
 
