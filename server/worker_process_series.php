@@ -642,6 +642,30 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $totalErrors = 0;
     $lastCheckpointMarker = null;
 
+    $progressItemEnv = getenv('IMPORTADOR_PROGRESS_UPDATE_ITEMS');
+    if ($progressItemEnv !== false && is_numeric($progressItemEnv)) {
+        $progressItemThreshold = max(0, (int) $progressItemEnv);
+    } else {
+        $progressItemThreshold = 250;
+    }
+    if ($progressItemThreshold <= 0) {
+        $progressItemThreshold = null;
+    }
+
+    $progressTimeEnv = getenv('IMPORTADOR_PROGRESS_UPDATE_SECONDS');
+    if ($progressTimeEnv !== false && is_numeric($progressTimeEnv)) {
+        $progressTimeThreshold = max(0, (int) $progressTimeEnv);
+    } else {
+        $progressTimeThreshold = 30;
+    }
+    if ($progressTimeThreshold <= 0) {
+        $progressTimeThreshold = null;
+    }
+
+    $lastProgressUpdateCount = 0;
+    $lastProgressUpdateTime = microtime(true);
+    $progressUpdateSentWithTotals = false;
+
     $inTransaction = false;
     $batchCount = 0;
 
@@ -768,7 +792,28 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 $lastCheckpointMarker = $checkpoint;
             }
 
-            if ($processedEntries % 25 === 0 || $processedEntries === $totalEntries) {
+            $currentTime = microtime(true);
+            $shouldDispatchProgress = false;
+            $isFinalIteration = ($processedEntries === $totalEntries);
+
+            if ($progressItemThreshold !== null
+                && ($processedEntries - $lastProgressUpdateCount) >= $progressItemThreshold
+            ) {
+                $shouldDispatchProgress = true;
+            }
+
+            if (!$shouldDispatchProgress
+                && $progressTimeThreshold !== null
+                && ($currentTime - $lastProgressUpdateTime) >= $progressTimeThreshold
+            ) {
+                $shouldDispatchProgress = true;
+            }
+
+            if ($isFinalIteration) {
+                $shouldDispatchProgress = true;
+            }
+
+            if ($shouldDispatchProgress) {
                 $progressUpdate = buildProgressUpdate(
                     $processedEntries,
                     $totalEntries,
@@ -778,8 +823,26 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                     $lastCheckpointMarker
                 );
                 updateJob($adminPdo, $jobId, $progressUpdate);
+                $lastProgressUpdateCount = $processedEntries;
+                $lastProgressUpdateTime = $currentTime;
+                if ($isFinalIteration) {
+                    $progressUpdateSentWithTotals = true;
+                }
             }
         }
+    }
+
+    if (!$progressUpdateSentWithTotals) {
+        $finalProgressUpdate = buildProgressUpdate(
+            $processedEntries,
+            $totalEntries,
+            $totalAdded,
+            $totalSkipped,
+            $totalErrors,
+            $lastCheckpointMarker
+        );
+        updateJob($adminPdo, $jobId, $finalProgressUpdate);
+        $progressUpdateSentWithTotals = true;
     }
 
     if ($inTransaction && $pdo->inTransaction()) {
