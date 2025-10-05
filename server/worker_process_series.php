@@ -652,6 +652,11 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         throw new RuntimeException('Erro ao conectar no banco de dados de destino: ' . $e->getMessage());
     }
 
+    updateJob($adminPdo, $jobId, [
+        'progress' => 7,
+        'message' => 'Banco de destino conectado. Analisando a lista M3U antes da importação...'
+    ]);
+
     $totalEntries = 0;
     $newSeriesStreamIds = [];
     $newEpisodeStreamIds = [];

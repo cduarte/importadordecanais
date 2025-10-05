@@ -563,7 +563,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     updateJob($adminPdo, $jobId, [
         'm3u_file_path' => $fullPath,
         'progress' => 5,
-        'message' => 'Lista M3U verfificada. Conectando ao banco de destino...'
+        'message' => 'Lista M3U verificada. Conectando ao banco de destino...'
     ]);
 
     try {
@@ -579,6 +579,11 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     } catch (PDOException $e) {
         throw new RuntimeException('Erro ao conectar no banco de dados de destino: ' . $e->getMessage());
     }
+
+    updateJob($adminPdo, $jobId, [
+        'progress' => 7,
+        'message' => 'Banco de destino conectado. Analisando a lista M3U antes da importação...'
+    ]);
 
     $totalEntries = 0;
     foreach (extractEntries($fullPath) as $entry) {
