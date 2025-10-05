@@ -1,0 +1,17 @@
+{
+    "name": "importadordecanais/app",
+    "description": "Ferramentas de importação de listas M3U para XUI.ONE",
+    "type": "project",
+    "require": {},
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "files": []
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
