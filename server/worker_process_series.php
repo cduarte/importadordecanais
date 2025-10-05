@@ -59,6 +59,7 @@ set_time_limit(0);
 
 const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
 const WATCH_REFRESH_INSERT_CHUNK_SIZE = 500;
+const STREAM_SOURCE_LOOKUP_CHUNK_SIZE = 800;
 
 if (!function_exists('importador_resolve_batch_size')) {
     function importador_resolve_batch_size(string $envKey, int $default): int
@@ -541,6 +542,41 @@ function streamSourceExists(PDOStatement $stmt, array &$streamCache, string $str
     return $exists;
 }
 
+function hydrateStreamCache(PDO $pdo, array &$pendingStreamSources, array &$streamCache): void
+{
+    if (empty($pendingStreamSources)) {
+        return;
+    }
+
+    $pendingKeys = array_keys($pendingStreamSources);
+    $pendingStreamSources = [];
+
+    foreach (array_chunk($pendingKeys, STREAM_SOURCE_LOOKUP_CHUNK_SIZE) as $chunk) {
+        if (empty($chunk)) {
+            continue;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+        $sql = 'SELECT stream_source FROM streams WHERE type = 5 AND stream_source IN (' . $placeholders . ')';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($chunk);
+
+        while (($source = $stmt->fetch(PDO::FETCH_COLUMN)) !== false) {
+            if (is_string($source) && $source !== '') {
+                $streamCache[$source] = true;
+            }
+        }
+
+        $stmt->closeCursor();
+
+        foreach ($chunk as $sourceKey) {
+            if (!isset($streamCache[$sourceKey])) {
+                $streamCache[$sourceKey] = false;
+            }
+        }
+    }
+}
+
 function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 {
     $jobId = (int) $job['id'];
@@ -616,10 +652,15 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         throw new RuntimeException('Erro ao conectar no banco de dados de destino: ' . $e->getMessage());
     }
 
-    $entriesToProcess = [];
     $totalEntries = 0;
     $newSeriesStreamIds = [];
     $newEpisodeStreamIds = [];
+
+    $categoryCache = [];
+    $seriesCache = [];
+    $episodeCache = [];
+    $streamCache = [];
+    $pendingStreamSources = [];
 
     foreach (extractSeriesEntries($fullPath) as $entry) {
         if (($entry['episode'] ?? '') === '') {
@@ -628,27 +669,6 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
         $streamInfo = getStreamTypeByUrl($entry['url']);
         if ($streamInfo === null) {
-            continue;
-        }
-
-        $entry['stream_info'] = $streamInfo;
-        $entriesToProcess[] = $entry;
-        $totalEntries++;
-    }
-
-    if ($totalEntries === 0) {
-        updateJob($adminPdo, $jobId, ['progress' => 95, 'message' => 'Nenhum episódio válido encontrado. Finalizando...']);
-    } else {
-        updateJob($adminPdo, $jobId, ['progress' => 10, 'message' => 'Iniciando importação de ' . formatBrazilianNumber($totalEntries) . ' episódios...']);
-    }
-
-    $categoryCache = [];
-    $seriesCache = [];
-    $episodeCache = [];
-    // Cache em memória das fontes dos streams existentes para evitar reprocessamento de episódios duplicados.
-    $pendingStreamSources = [];
-    foreach ($entriesToProcess as $entry) {
-        if (($entry['episode'] ?? '') === '' || !isset($entry['stream_info'])) {
             continue;
         }
 
@@ -662,32 +682,25 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             continue;
         }
 
-        $pendingStreamSources[$encoded] = true;
-    }
+        $totalEntries++;
 
-    if (!empty($pendingStreamSources)) {
-        $streamCache = array_fill_keys(array_keys($pendingStreamSources), false);
-
-        $stmt = $pdo->query('SELECT stream_source FROM streams WHERE type = 5');
-        if ($stmt instanceof PDOStatement) {
-            while (true) {
-                $source = $stmt->fetch(PDO::FETCH_COLUMN);
-                if ($source === false) {
-                    break;
-                }
-
-                if (!is_string($source) || $source === '' || !array_key_exists($source, $streamCache)) {
-                    continue;
-                }
-
-                $streamCache[$source] = true;
+        if (!array_key_exists($encoded, $streamCache) && !isset($pendingStreamSources[$encoded])) {
+            $pendingStreamSources[$encoded] = true;
+            if (count($pendingStreamSources) >= STREAM_SOURCE_LOOKUP_CHUNK_SIZE) {
+                hydrateStreamCache($pdo, $pendingStreamSources, $streamCache);
             }
-
-            $stmt->closeCursor();
         }
-    } else {
-        $streamCache = [];
     }
+
+    hydrateStreamCache($pdo, $pendingStreamSources, $streamCache);
+
+    if ($totalEntries === 0) {
+        updateJob($adminPdo, $jobId, ['progress' => 95, 'message' => 'Nenhum episódio válido encontrado. Finalizando...']);
+    } else {
+        updateJob($adminPdo, $jobId, ['progress' => 10, 'message' => 'Iniciando importação de ' . formatBrazilianNumber($totalEntries) . ' episódios...']);
+    }
+
+    unset($pendingStreamSources);
 
     $categoryStmt = $pdo->query('SELECT id, category_name FROM streams_categories WHERE category_type = "series"');
     while ($row = $categoryStmt->fetch(PDO::FETCH_ASSOC)) {
@@ -783,15 +796,27 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $inTransaction = false;
     $batchCount = 0;
 
-    foreach ($entriesToProcess as $entry) {
-        if (($entry['episode'] ?? '') === '' || !isset($entry['stream_info'])) {
+    foreach (extractSeriesEntries($fullPath) as $entry) {
+        if (($entry['episode'] ?? '') === '') {
             continue;
         }
 
-        $streamInfo = $entry['stream_info'];
+        $streamInfo = getStreamTypeByUrl($entry['url']);
+        if ($streamInfo === null) {
+            continue;
+        }
+
+        $url = trim($entry['url']);
+        if ($url === '') {
+            continue;
+        }
+
+        $streamSource = json_encode([$url], JSON_UNESCAPED_SLASHES);
+        if (!is_string($streamSource) || $streamSource === '') {
+            continue;
+        }
 
         $processedEntries++;
-        $url = trim($entry['url']);
         $episodeNameFull = trim($entry['episode']);
 
         try {
@@ -843,9 +868,11 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 continue;
             }
 
-            $streamSource = json_encode([$url], JSON_UNESCAPED_SLASHES);
+            if (!array_key_exists($streamSource, $streamCache)) {
+                $streamCache[$streamSource] = streamSourceExists($checkStreamSourceStmt, $streamCache, $streamSource);
+            }
 
-            if (streamSourceExists($checkStreamSourceStmt, $streamCache, $streamSource)) {
+            if ($streamCache[$streamSource]) {
                 $totalSkipped++;
                 markEpisodeInCache($episodeCache, $seriesId, $seasonNumber, $episodeNumber);
                 continue;
@@ -949,8 +976,6 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             }
         }
     }
-
-    unset($entriesToProcess);
 
     if (!$progressUpdateSentWithTotals) {
         $finalProgressUpdate = buildProgressUpdate(
