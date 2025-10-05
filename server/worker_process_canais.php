@@ -2,57 +2,7 @@
 
 declare(strict_types=1);
 
-// --- Loader manual do .env ---
-if (!function_exists('importador_load_env')) {
-    function importador_load_env(): void
-    {
-        static $loaded = false;
-        if ($loaded) {
-            return;
-        }
-        $loaded = true;
-
-        $paths = [
-            __DIR__ . '/.env',
-            dirname(__DIR__) . '/.env',
-        ];
-
-        $seen = [];
-        foreach ($paths as $path) {
-            if (!is_string($path) || $path === '' || !is_file($path)) {
-                continue;
-            }
-            if (isset($seen[$path])) {
-                continue;
-            }
-            $seen[$path] = true;
-
-            $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-            if ($lines === false) {
-                continue;
-            }
-
-            foreach ($lines as $line) {
-                $line = trim($line);
-                if ($line === '' || $line[0] === '#') {
-                    continue;
-                }
-                if (strpos($line, '=') === false) {
-                    continue;
-                }
-
-                [$name, $value] = array_map('trim', explode('=', $line, 2));
-                if ($name === '') {
-                    continue;
-                }
-
-                putenv("{$name}={$value}");
-                $_ENV[$name] = $value;
-                $_SERVER[$name] = $value;
-            }
-        }
-    }
-}
+require_once __DIR__ . '/includes/importador_common.php';
 
 importador_load_env();
 
@@ -79,67 +29,6 @@ if (PHP_SAPI === 'cli' && function_exists('pcntl_signal') && function_exists('pc
         throw new RuntimeException('Tempo limite do worker atingido.');
     });
     pcntl_alarm(max(60, min(3600, $streamTimeout * 2)));
-}
-
-function logInfo(string $message): void
-{
-    $line = '[' . date('c') . '] ' . $message;
-    if (PHP_SAPI === 'cli' && defined('STDOUT')) {
-        fwrite(STDOUT, $line . PHP_EOL);
-    } else {
-        error_log($line);
-    }
-}
-
-function updateJob(PDO $adminPdo, int $jobId, array $fields): void
-{
-    if (empty($fields)) {
-        return;
-    }
-
-    $allowed = [
-        'status',
-        'progress',
-        'message',
-        'm3u_file_path',
-        'total_added',
-        'total_skipped',
-        'total_errors',
-        'started_at',
-        'finished_at',
-    ];
-
-    $setParts = [];
-    $params = [':id' => $jobId];
-    foreach ($fields as $column => $value) {
-        if (!in_array($column, $allowed, true)) {
-            continue;
-        }
-        if ($column === 'message' && is_string($value)) {
-            $value = sanitizeMessage($value);
-        }
-        $placeholder = ':' . $column;
-        $setParts[] = "`{$column}` = {$placeholder}";
-        $params[$placeholder] = $value;
-    }
-
-    if (empty($setParts)) {
-        return;
-    }
-
-    $setParts[] = '`updated_at` = NOW()';
-    $sql = 'UPDATE clientes_import_jobs SET ' . implode(', ', $setParts) . ' WHERE id = :id LIMIT 1';
-
-    $stmt = $adminPdo->prepare($sql);
-    $stmt->execute($params);
-}
-
-function fetchJob(PDO $adminPdo, int $jobId): ?array
-{
-    $stmt = $adminPdo->prepare('SELECT * FROM clientes_import_jobs WHERE id = :id LIMIT 1');
-    $stmt->execute([':id' => $jobId]);
-    $job = $stmt->fetch(PDO::FETCH_ASSOC);
-    return $job ?: null;
 }
 
 function getCategoryId(PDO $pdo, string $categoryName, string $categoryType): int

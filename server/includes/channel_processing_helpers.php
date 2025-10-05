@@ -2,24 +2,7 @@
 
 declare(strict_types=1);
 
-if (!function_exists('sanitizeMessage')) {
-    function sanitizeMessage(string $message): string
-    {
-        $trimmed = trim($message);
-        if (function_exists('mb_substr')) {
-            return mb_substr($trimmed, 0, 2000, 'UTF-8');
-        }
-
-        return substr($trimmed, 0, 2000);
-    }
-}
-
-if (!function_exists('formatBrazilianNumber')) {
-    function formatBrazilianNumber(int $value): string
-    {
-        return number_format($value, 0, ',', '.');
-    }
-}
+require_once __DIR__ . '/importador_common.php';
 
 if (!function_exists('getStreamTypeByUrl')) {
     function getStreamTypeByUrl(string $url): array
