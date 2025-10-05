@@ -60,6 +60,8 @@ set_time_limit(0);
 const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
 const BATCH_SIZE = 200;
 const WATCH_REFRESH_INSERT_CHUNK_SIZE = 500;
+const DEFAULT_PROGRESS_UPDATE_ITEM_THRESHOLD = 200;
+const DEFAULT_PROGRESS_UPDATE_MIN_INTERVAL_SECONDS = 10;
 
 $timeoutEnv = getenv('IMPORTADOR_M3U_TIMEOUT');
 $streamTimeout = ($timeoutEnv !== false && is_numeric($timeoutEnv) && (int) $timeoutEnv > 0)
@@ -444,6 +446,39 @@ function buildProgressUpdate(
     ];
 }
 
+function persistProgressUpdate(
+    PDO $adminPdo,
+    int $jobId,
+    ?array $latestProgressUpdate,
+    int &$confirmedAdded,
+    int &$confirmedSkipped,
+    int &$confirmedErrors,
+    ?string $lastCheckpointMarker,
+    ?string &$lastPersistedCheckpoint
+): bool {
+    if ($latestProgressUpdate === null) {
+        return false;
+    }
+
+    updateJob($adminPdo, $jobId, $latestProgressUpdate);
+
+    if (isset($latestProgressUpdate['total_added'])) {
+        $confirmedAdded = (int) $latestProgressUpdate['total_added'];
+    }
+    if (isset($latestProgressUpdate['total_skipped'])) {
+        $confirmedSkipped = (int) $latestProgressUpdate['total_skipped'];
+    }
+    if (isset($latestProgressUpdate['total_errors'])) {
+        $confirmedErrors = (int) $latestProgressUpdate['total_errors'];
+    }
+
+    if ($lastCheckpointMarker !== null) {
+        $lastPersistedCheckpoint = $lastCheckpointMarker;
+    }
+
+    return true;
+}
+
 function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 {
     $jobId = (int) $job['id'];
@@ -524,6 +559,19 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $totalErrors = $confirmedErrors;
     $lastPersistedCheckpoint = null;
 
+    $progressThresholdEnv = getenv('IMPORTADOR_PROGRESS_UPDATE_ITEM_THRESHOLD');
+    $progressUpdateItemThreshold = ($progressThresholdEnv !== false && is_numeric($progressThresholdEnv) && (int) $progressThresholdEnv > 0)
+        ? (int) $progressThresholdEnv
+        : DEFAULT_PROGRESS_UPDATE_ITEM_THRESHOLD;
+
+    $progressIntervalEnv = getenv('IMPORTADOR_PROGRESS_UPDATE_MIN_INTERVAL');
+    $progressUpdateMinInterval = ($progressIntervalEnv !== false && is_numeric($progressIntervalEnv) && (int) $progressIntervalEnv > 0)
+        ? (int) $progressIntervalEnv
+        : DEFAULT_PROGRESS_UPDATE_MIN_INTERVAL_SECONDS;
+
+    $itemsSinceLastProgressUpdate = 0;
+    $lastProgressUpdateTime = microtime(true);
+
     // Cache em memória das fontes já existentes para evitar consultas repetidas durante a importação.
     $streamCache = [];
     try {
@@ -578,6 +626,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             if (isset($streamCache[$streamSource])) {
                 $totalSkipped++;
                 $processedEntries++;
+                $itemsSinceLastProgressUpdate++;
                 $lastCheckpointMarker = createCheckpointMarker($processedEntries, $url);
                 $latestProgressUpdate = buildProgressUpdate(
                     $processedEntries,
@@ -587,13 +636,23 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                     $totalErrors,
                     $lastCheckpointMarker
                 );
-                if (!$inTransaction && $latestProgressUpdate !== null) {
-                    updateJob($adminPdo, $jobId, $latestProgressUpdate);
-                    $confirmedAdded = $latestProgressUpdate['total_added'];
-                    $confirmedSkipped = $latestProgressUpdate['total_skipped'];
-                    $confirmedErrors = $latestProgressUpdate['total_errors'];
-                    if ($lastCheckpointMarker !== null) {
-                        $lastPersistedCheckpoint = $lastCheckpointMarker;
+                $shouldFlushProgress = $itemsSinceLastProgressUpdate >= $progressUpdateItemThreshold;
+                if (!$shouldFlushProgress && $progressUpdateMinInterval > 0) {
+                    $shouldFlushProgress = (microtime(true) - $lastProgressUpdateTime) >= $progressUpdateMinInterval;
+                }
+                if (!$inTransaction && $shouldFlushProgress) {
+                    if (persistProgressUpdate(
+                        $adminPdo,
+                        $jobId,
+                        $latestProgressUpdate,
+                        $confirmedAdded,
+                        $confirmedSkipped,
+                        $confirmedErrors,
+                        $lastCheckpointMarker,
+                        $lastPersistedCheckpoint
+                    )) {
+                        $itemsSinceLastProgressUpdate = 0;
+                        $lastProgressUpdateTime = microtime(true);
                     }
                 }
                 continue;
@@ -667,6 +726,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
             $processedEntries++;
             $batchInsertions++;
+            $itemsSinceLastProgressUpdate++;
             $lastCheckpointMarker = createCheckpointMarker($processedEntries, $url);
             $latestProgressUpdate = buildProgressUpdate(
                 $processedEntries,
@@ -684,36 +744,48 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 $inTransaction = false;
                 $batchInsertions = 0;
 
-                if ($latestProgressUpdate !== null) {
-                    updateJob($adminPdo, $jobId, $latestProgressUpdate);
-                    $confirmedAdded = $latestProgressUpdate['total_added'];
-                    $confirmedSkipped = $latestProgressUpdate['total_skipped'];
-                    $confirmedErrors = $latestProgressUpdate['total_errors'];
-                    if ($lastCheckpointMarker !== null) {
-                        $lastPersistedCheckpoint = $lastCheckpointMarker;
-                    }
+                if (persistProgressUpdate(
+                    $adminPdo,
+                    $jobId,
+                    $latestProgressUpdate,
+                    $confirmedAdded,
+                    $confirmedSkipped,
+                    $confirmedErrors,
+                    $lastCheckpointMarker,
+                    $lastPersistedCheckpoint
+                )) {
+                    $itemsSinceLastProgressUpdate = 0;
+                    $lastProgressUpdateTime = microtime(true);
                 }
             }
         }
         if ($inTransaction && $pdo->inTransaction()) {
             $pdo->commit();
-            if ($latestProgressUpdate !== null) {
-                updateJob($adminPdo, $jobId, $latestProgressUpdate);
-                $confirmedAdded = $latestProgressUpdate['total_added'];
-                $confirmedSkipped = $latestProgressUpdate['total_skipped'];
-                $confirmedErrors = $latestProgressUpdate['total_errors'];
-                if ($lastCheckpointMarker !== null) {
-                    $lastPersistedCheckpoint = $lastCheckpointMarker;
-                }
+            if (persistProgressUpdate(
+                $adminPdo,
+                $jobId,
+                $latestProgressUpdate,
+                $confirmedAdded,
+                $confirmedSkipped,
+                $confirmedErrors,
+                $lastCheckpointMarker,
+                $lastPersistedCheckpoint
+            )) {
+                $itemsSinceLastProgressUpdate = 0;
+                $lastProgressUpdateTime = microtime(true);
             }
-        } elseif ($latestProgressUpdate !== null) {
-            updateJob($adminPdo, $jobId, $latestProgressUpdate);
-            $confirmedAdded = $latestProgressUpdate['total_added'];
-            $confirmedSkipped = $latestProgressUpdate['total_skipped'];
-            $confirmedErrors = $latestProgressUpdate['total_errors'];
-            if ($lastCheckpointMarker !== null) {
-                $lastPersistedCheckpoint = $lastCheckpointMarker;
-            }
+        } elseif (persistProgressUpdate(
+            $adminPdo,
+            $jobId,
+            $latestProgressUpdate,
+            $confirmedAdded,
+            $confirmedSkipped,
+            $confirmedErrors,
+            $lastCheckpointMarker,
+            $lastPersistedCheckpoint
+        )) {
+            $itemsSinceLastProgressUpdate = 0;
+            $lastProgressUpdateTime = microtime(true);
         }
 
         if (!empty($newStreamIds)) {
