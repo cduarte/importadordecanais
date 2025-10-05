@@ -504,14 +504,31 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         'https' => ['timeout' => $streamTimeout, 'follow_location' => 1, 'user_agent' => 'Importador-XUI/1.0'],
     ]);
 
-    $contents = @file_get_contents($m3uUrl, false, $opts);
-    if ($contents === false) {
+    $filename = 'm3u_' . time() . '_' . substr(md5($m3uUrl), 0, 8) . '.m3u';
+    $fullPath = $uploadDir . $filename;
+    $readStream = @fopen($m3uUrl, 'rb', false, $opts);
+    if ($readStream === false) {
         throw new RuntimeException('Erro ao baixar a lista M3U informada.');
     }
 
-    $filename = 'm3u_' . time() . '_' . substr(md5($m3uUrl), 0, 8) . '.m3u';
-    $fullPath = $uploadDir . $filename;
-    if (file_put_contents($fullPath, $contents) === false) {
+    $writeStream = @fopen($fullPath, 'wb');
+    if ($writeStream === false) {
+        fclose($readStream);
+        throw new RuntimeException('Erro ao gravar a lista M3U no servidor.');
+    }
+
+    $bytesCopied = @stream_copy_to_stream($readStream, $writeStream);
+    fclose($writeStream);
+    fclose($readStream);
+
+    if ($bytesCopied === false) {
+        @unlink($fullPath);
+        throw new RuntimeException('Erro ao gravar a lista M3U no servidor.');
+    }
+
+    $fileSize = @filesize($fullPath);
+    if ($fileSize === false || $fileSize === 0) {
+        @unlink($fullPath);
         throw new RuntimeException('Erro ao gravar a lista M3U no servidor.');
     }
 
