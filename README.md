@@ -43,6 +43,31 @@ Cada worker valida o tipo do job antes de iniciar o processamento.
 - Banco de dados **MySQL/MariaDB**
 - Acesso ao **XUI.ONE**
 
+## 🧪 Como testar sem acesso ao banco remoto
+
+Este repositório foi preparado para executar testes automatizados **sem depender do banco de dados remoto** informado na ficha do
+cliente. O ambiente desta automação não tem conectividade direta com a instância pública (`45.67.136.10`) nem utiliza as credenciais
+`joaopedro_user/d@z[VGxj)~FNCft6`. Em vez disso, os cenários de importação são validados a partir de arquivos de playlist gravados
+nos testes unitários.
+
+1. Instale as dependências do Composer:
+
+   ```bash
+   composer install
+   ```
+
+2. Execute a suíte de testes:
+
+   ```bash
+   composer test
+   ```
+
+Os testes carregam fixtures com as playlists fornecidas (Xtream Golplay e Hubby.run) e confirmam o comportamento de parsing e de
+exibição de progresso dos workers. Assim você garante a qualidade do processamento antes de apontar o sistema para o ambiente de
+produção com banco remoto.
+
+> ℹ️ As playlists reais baixadas das URLs enviadas pelo cliente estão versionadas na pasta [`testes/`](testes/). Caso precise atualizar os cenários, basta substituir os arquivos `302415.m3u`, `tv_channels_bahds10-vods_plus.m3u` ou `playlist_761966021_plus.m3u` pelos dumps mais recentes dessas fontes antes de rodar `composer test`.
+
 ## 🌐 Importador API Proxy
 
 Este projeto implementa um **proxy em PHP** (`cliente/api_proxy.php`) que redireciona requisições locais para uma **API remota**. Ele serve para encapsular chamadas aos endpoints de importação sem expor diretamente a URL do servidor de destino.
