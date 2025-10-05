@@ -486,6 +486,61 @@ function getSeriesId(
     return $id;
 }
 
+function ensureSeriesEpisodesCached(PDOStatement $stmt, int $seriesId, array &$episodeCache): void
+{
+    if (isset($episodeCache[$seriesId])) {
+        return;
+    }
+
+    $episodeCache[$seriesId] = [];
+
+    $stmt->execute([':series_id' => $seriesId]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $season = isset($row['season_num']) ? (int) $row['season_num'] : 0;
+        $episode = isset($row['episode_num']) ? (int) $row['episode_num'] : 0;
+
+        if ($season < 0 || $episode < 0) {
+            continue;
+        }
+
+        if (!isset($episodeCache[$seriesId][$season])) {
+            $episodeCache[$seriesId][$season] = [];
+        }
+
+        $episodeCache[$seriesId][$season][$episode] = true;
+    }
+
+    $stmt->closeCursor();
+}
+
+function markEpisodeInCache(array &$episodeCache, int $seriesId, int $season, int $episode): void
+{
+    if (!isset($episodeCache[$seriesId])) {
+        $episodeCache[$seriesId] = [];
+    }
+
+    if (!isset($episodeCache[$seriesId][$season])) {
+        $episodeCache[$seriesId][$season] = [];
+    }
+
+    $episodeCache[$seriesId][$season][$episode] = true;
+}
+
+function streamSourceExists(PDOStatement $stmt, array &$streamCache, string $streamSource): bool
+{
+    if (isset($streamCache[$streamSource])) {
+        return $streamCache[$streamSource];
+    }
+
+    $stmt->execute([':source' => $streamSource]);
+    $exists = $stmt->fetchColumn() !== false;
+    $stmt->closeCursor();
+
+    $streamCache[$streamSource] = $exists;
+
+    return $exists;
+}
+
 function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 {
     $jobId = (int) $job['id'];
@@ -607,23 +662,8 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         $seriesCache[$key] = (int) $row['id'];
     }
 
-    $episodeStmt = $pdo->query('SELECT series_id, season_num, episode_num FROM streams_episodes');
-    while ($row = $episodeStmt->fetch(PDO::FETCH_ASSOC)) {
-        $seriesId = (int) ($row['series_id'] ?? 0);
-        $seasonNum = (int) ($row['season_num'] ?? 0);
-        $episodeNum = (int) ($row['episode_num'] ?? 0);
-        if ($seriesId > 0 && $seasonNum >= 0 && $episodeNum >= 0) {
-            $episodeCache[$seriesId . ':' . $seasonNum . ':' . $episodeNum] = true;
-        }
-    }
-
-    $streamStmt = $pdo->query('SELECT stream_source FROM streams WHERE type = 5');
-    while ($row = $streamStmt->fetch(PDO::FETCH_ASSOC)) {
-        $source = $row['stream_source'] ?? '';
-        if (is_string($source) && $source !== '') {
-            $streamCache[$source] = true;
-        }
-    }
+    $loadEpisodesStmt = $pdo->prepare('SELECT season_num, episode_num FROM streams_episodes WHERE series_id = :series_id');
+    $checkStreamSourceStmt = $pdo->prepare('SELECT 1 FROM streams WHERE type = 5 AND stream_source = :source LIMIT 1');
 
     $insertSeriesStmt = $pdo->prepare('
         INSERT INTO streams_series (
@@ -745,19 +785,26 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
             if ($wasNewSeries) {
                 $newSeriesStreamIds[$seriesId] = true;
+                if (!isset($episodeCache[$seriesId])) {
+                    $episodeCache[$seriesId] = [];
+                }
             }
 
-            $episodeKey = $seriesId . ':' . $parsed['season'] . ':' . $parsed['episode'];
-            if (isset($episodeCache[$episodeKey])) {
+            $seasonNumber = (int) $parsed['season'];
+            $episodeNumber = (int) $parsed['episode'];
+
+            ensureSeriesEpisodesCached($loadEpisodesStmt, $seriesId, $episodeCache);
+
+            if (isset($episodeCache[$seriesId][$seasonNumber][$episodeNumber])) {
                 $totalSkipped++;
                 continue;
             }
 
             $streamSource = json_encode([$url], JSON_UNESCAPED_SLASHES);
 
-            if (isset($streamCache[$streamSource])) {
+            if (streamSourceExists($checkStreamSourceStmt, $streamCache, $streamSource)) {
                 $totalSkipped++;
-                $episodeCache[$episodeKey] = true;
+                markEpisodeInCache($episodeCache, $seriesId, $seasonNumber, $episodeNumber);
                 continue;
             }
 
@@ -790,13 +837,13 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             $streamCache[$streamSource] = true;
 
             $insertEpisodeStmt->execute([
-                ':season' => $parsed['season'],
-                ':episode' => $parsed['episode'],
+                ':season' => $seasonNumber,
+                ':episode' => $episodeNumber,
                 ':series_id' => $seriesId,
                 ':stream_id' => $streamId,
             ]);
 
-            $episodeCache[$episodeKey] = true;
+            markEpisodeInCache($episodeCache, $seriesId, $seasonNumber, $episodeNumber);
 
             $totalAdded++;
             $batchCount++;
