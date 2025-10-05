@@ -58,8 +58,8 @@ importador_load_env();
 set_time_limit(0);
 
 const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
-const WATCH_REFRESH_INSERT_CHUNK_SIZE = 500;
-const STREAM_SOURCE_LOOKUP_CHUNK_SIZE = 800;
+const WATCH_REFRESH_INSERT_CHUNK_SIZE = 1000;
+const STREAM_SOURCE_LOOKUP_CHUNK_SIZE = 1600;
 
 if (!function_exists('importador_resolve_batch_size')) {
     function importador_resolve_batch_size(string $envKey, int $default): int
