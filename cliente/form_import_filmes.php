@@ -929,6 +929,17 @@ $m3u_url = $_POST['m3u_url'] ?? '';
 
                 <div class="faq-item">
                     <button class="faq-question" type="button" onclick="toggleFaq(this)">
+                        Minha conexão e meus dados ficam salvos no sistema?
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Não. O Importador Automatizado processa todas as informações em tempo de execução, ou seja, nada é salvo nem armazenado após o uso.</p>
+                        <p>Os dados informados (como IP, usuário, senha ou URL da fonte) não ficam guardados em nossos servidores — tudo é tratado em tempo real, garantindo privacidade e segurança total.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <button class="faq-question" type="button" onclick="toggleFaq(this)">
                         Como sei se a lista foi importada com sucesso?
                         <i class="fas fa-chevron-down"></i>
                     </button>
