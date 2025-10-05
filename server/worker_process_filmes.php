@@ -532,7 +532,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         'https' => ['timeout' => $streamTimeout, 'follow_location' => 1, 'user_agent' => 'Importador-XUI/1.0'],
     ]);
 
-    $filename = 'm3u_' . time() . '_' . substr(md5($m3uUrl), 0, 8) . '.m3u';
+    $filename = 'filmes_' . time() . '_' . substr(md5($m3uUrl), 0, 8) . '.m3u';
     $fullPath = $uploadDir . $filename;
     $readStream = @fopen($m3uUrl, 'rb', false, $opts);
     if ($readStream === false) {

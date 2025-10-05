@@ -209,7 +209,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         throw new RuntimeException('Erro ao baixar a lista M3U informada.');
     }
 
-    $filename = 'm3u_' . time() . '_' . substr(md5($m3uUrl), 0, 8) . '.m3u';
+    $filename = 'canais_' . time() . '_' . substr(md5($m3uUrl), 0, 8) . '.m3u';
     $fullPath = $uploadDir . $filename;
     if (file_put_contents($fullPath, $contents) === false) {
         throw new RuntimeException('Erro ao gravar a lista M3U no servidor.');
