@@ -536,13 +536,13 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $fullPath = $uploadDir . $filename;
     $readStream = @fopen($m3uUrl, 'rb', false, $opts);
     if ($readStream === false) {
-        throw new RuntimeException('Erro ao baixar a lista M3U informada.');
+        throw new RuntimeException('Não foi possível acessar a lista M3U informada em tempo real.');
     }
 
     $writeStream = @fopen($fullPath, 'wb');
     if ($writeStream === false) {
         fclose($readStream);
-        throw new RuntimeException('Erro ao gravar a lista M3U no servidor.');
+        throw new RuntimeException('Não foi possível preparar o processamento temporário da lista M3U.');
     }
 
     $bytesCopied = @stream_copy_to_stream($readStream, $writeStream);
@@ -551,19 +551,19 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
     if ($bytesCopied === false) {
         @unlink($fullPath);
-        throw new RuntimeException('Erro ao gravar a lista M3U no servidor.');
+        throw new RuntimeException('Não foi possível preparar o processamento temporário da lista M3U.');
     }
 
     $fileSize = @filesize($fullPath);
     if ($fileSize === false || $fileSize === 0) {
         @unlink($fullPath);
-        throw new RuntimeException('Erro ao gravar a lista M3U no servidor.');
+        throw new RuntimeException('Não foi possível preparar o processamento temporário da lista M3U.');
     }
 
     updateJob($adminPdo, $jobId, [
         'm3u_file_path' => $fullPath,
         'progress' => 5,
-        'message' => 'Lista M3U verificada. Conectando ao banco de destino...'
+        'message' => 'Lista M3U verificada para processamento imediato, sem armazenamento permanente. Conectando ao banco de destino...'
     ]);
 
     try {
