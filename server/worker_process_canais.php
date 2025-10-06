@@ -206,19 +206,19 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
     $contents = @file_get_contents($m3uUrl, false, $opts);
     if ($contents === false) {
-        throw new RuntimeException('Erro ao baixar a lista M3U informada.');
+        throw new RuntimeException('Não foi possível acessar a lista M3U informada em tempo real.');
     }
 
     $filename = 'canais_' . time() . '_' . substr(md5($m3uUrl), 0, 8) . '.m3u';
     $fullPath = $uploadDir . $filename;
     if (file_put_contents($fullPath, $contents) === false) {
-        throw new RuntimeException('Erro ao gravar a lista M3U no servidor.');
+        throw new RuntimeException('Não foi possível preparar o processamento temporário da lista M3U.');
     }
 
     updateJob($adminPdo, $jobId, [
         'm3u_file_path' => $fullPath,
         'progress' => CHANNEL_PROGRESS_DOWNLOAD,
-        'message' => 'Lista M3U verificada. Conectando ao banco de destino...'
+        'message' => 'Lista M3U verificada para processamento imediato, sem armazenamento permanente. Conectando ao banco de destino...'
     ]);
 
     try {
