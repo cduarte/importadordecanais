@@ -82,7 +82,8 @@ function extractCategoryAndEpisode(string $line): array {
 
 function isAdultCategory(string $categoryName): bool {
     return stripos($categoryName, 'adulto') !== false
-        || stripos($categoryName, 'xxx') !== false;
+        || stripos($categoryName, 'xxx') !== false
+        || stripos($categoryName, 'onlyfans') !== false;
 }
 
 /**

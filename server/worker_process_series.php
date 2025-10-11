@@ -182,7 +182,9 @@ function normalizaChave(string $valor): string
 
 function isAdultCategory(string $name): bool
 {
-    return stripos($name, 'adulto') !== false || stripos($name, 'xxx') !== false;
+    return stripos($name, 'adulto') !== false
+        || stripos($name, 'xxx') !== false
+        || stripos($name, 'onlyfans') !== false;
 }
 
 function safePregReplace(string $pattern, string $replacement, string $subject): string
