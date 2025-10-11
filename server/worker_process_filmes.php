@@ -307,7 +307,9 @@ function gerarChaveCategoria(string $nome, string $tipo): string
 
 function isAdultCategory(string $categoryName): bool
 {
-    return stripos($categoryName, 'adulto') !== false || stripos($categoryName, 'xxx') !== false;
+    return stripos($categoryName, 'adulto') !== false
+        || stripos($categoryName, 'xxx') !== false
+        || stripos($categoryName, 'onlyfans') !== false;
 }
 
 function getCategoryId(PDO $pdo, string $categoryName, string $categoryType): int
