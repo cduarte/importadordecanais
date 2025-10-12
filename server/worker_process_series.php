@@ -55,6 +55,8 @@ if (!function_exists('importador_load_env')) {
 
 importador_load_env();
 
+require_once __DIR__ . '/includes/channel_processing_helpers.php';
+
 set_time_limit(0);
 
 const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
@@ -194,18 +196,6 @@ function safePregReplace(string $pattern, string $replacement, string $subject):
         return $subject;
     }
     return $result;
-}
-
-function getStreamTypeByUrl(string $url): ?array
-{
-    if (stripos($url, '/series/') !== false) {
-        return [
-            'type' => 5,
-            'category_type' => 'series',
-            'direct_source' => 1,
-        ];
-    }
-    return null;
 }
 
 function determineTargetContainer(string $url): string
@@ -674,7 +664,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             continue;
         }
 
-        $streamInfo = getStreamTypeByUrl($entry['url']);
+        $streamInfo = classifySeriesImportEntry($entry);
         if ($streamInfo === null) {
             continue;
         }
@@ -808,7 +798,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             continue;
         }
 
-        $streamInfo = getStreamTypeByUrl($entry['url']);
+        $streamInfo = classifySeriesImportEntry($entry);
         if ($streamInfo === null) {
             continue;
         }

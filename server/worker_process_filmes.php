@@ -55,6 +55,8 @@ if (!function_exists('importador_load_env')) {
 
 importador_load_env();
 
+require_once __DIR__ . '/includes/channel_processing_helpers.php';
+
 set_time_limit(0);
 
 const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
@@ -209,14 +211,6 @@ function fetchJob(PDO $adminPdo, int $jobId): ?array
     $stmt->execute([':id' => $jobId]);
     $job = $stmt->fetch(PDO::FETCH_ASSOC);
     return $job ?: null;
-}
-
-function getStreamTypeByUrl(string $url): ?array
-{
-    if (stripos($url, '/movie/') !== false) {
-        return ['type' => 2, 'category_type' => 'movie', 'direct_source' => 1];
-    }
-    return null;
 }
 
 function parseMovieTitle(string $rawName): array
@@ -589,10 +583,11 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
     $totalEntries = 0;
     foreach (extractEntries($fullPath) as $entry) {
-        $streamInfo = getStreamTypeByUrl($entry['url']);
-        if ($streamInfo === null || (int) $streamInfo['type'] !== 2) {
+        $streamInfo = classifyMovieImportEntry($entry);
+        if ($streamInfo === null) {
             continue;
         }
+
         $totalEntries++;
     }
     $processedEntries = 0;
@@ -663,8 +658,8 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         $newStreamIds = [];
 
         foreach (extractEntries($fullPath) as $entry) {
-            $streamInfo = getStreamTypeByUrl($entry['url']);
-            if ($streamInfo === null || (int) $streamInfo['type'] !== 2) {
+            $streamInfo = classifyMovieImportEntry($entry);
+            if ($streamInfo === null) {
                 continue;
             }
 
