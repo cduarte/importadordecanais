@@ -252,7 +252,11 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
     $totalEntries = 0;
     foreach (extractChannelEntries($fullPath) as $entry) {
-        $streamInfo = getStreamTypeByUrl($entry['url']);
+        $streamInfo = getStreamTypeByUrl(
+            $entry['url'],
+            $entry['tvg_name'] ?? null,
+            $entry['group_title'] ?? null
+        );
         if ((int) $streamInfo['type'] !== 1) {
             continue;
         }
@@ -282,7 +286,11 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     ');
 
     foreach (extractChannelEntries($fullPath) as $entry) {
-        $streamInfo = getStreamTypeByUrl($entry['url']);
+        $streamInfo = getStreamTypeByUrl(
+            $entry['url'],
+            $entry['tvg_name'] ?? null,
+            $entry['group_title'] ?? null
+        );
         if ((int) $streamInfo['type'] !== 1) {
             continue;
         }

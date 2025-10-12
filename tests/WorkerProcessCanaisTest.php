@@ -47,9 +47,13 @@ final class WorkerProcessCanaisTest extends TestCase
         );
         $this->assertSame('Filmes | Guerra', $firstEntry['group_title'], 'Group title should be preserved from the playlist metadata.');
 
-        $streamInfo = getStreamTypeByUrl($firstEntry['url']);
+        $streamInfo = getStreamTypeByUrl(
+            $firstEntry['url'],
+            $firstEntry['tvg_name'] ?? null,
+            $firstEntry['group_title'] ?? null
+        );
         $this->assertSame(0, $streamInfo['type'], 'Entries from the Xtream Golplay URL should be classified as VOD.');
-        $this->assertSame('', $streamInfo['category_type']);
+        $this->assertSame('movie', $streamInfo['category_type']);
     }
 
     public function testHubbyRunVodPlaylistEntriesAreParsed(): void
@@ -67,9 +71,13 @@ final class WorkerProcessCanaisTest extends TestCase
         );
         $this->assertStringContainsString('Adulto', $firstEntry['tvg_name']);
 
-        $streamInfo = getStreamTypeByUrl($firstEntry['url']);
+        $streamInfo = getStreamTypeByUrl(
+            $firstEntry['url'],
+            $firstEntry['tvg_name'] ?? null,
+            $firstEntry['group_title'] ?? null
+        );
         $this->assertSame(0, $streamInfo['type'], 'Hubby.run playlist should be recognised as VOD items.');
-        $this->assertSame('', $streamInfo['category_type']);
+        $this->assertSame('movie', $streamInfo['category_type']);
     }
 
     public function testLiveChannelsPlaylistMaintainsMetadata(): void
@@ -83,9 +91,69 @@ final class WorkerProcessCanaisTest extends TestCase
         $this->assertSame('SPORTV 2 HD', $firstEntry['tvg_name']);
         $this->assertSame('⚽ CANAIS • SPORTV', $firstEntry['group_title']);
 
-        $streamInfo = getStreamTypeByUrl($firstEntry['url']);
+        $streamInfo = getStreamTypeByUrl(
+            $firstEntry['url'],
+            $firstEntry['tvg_name'] ?? null,
+            $firstEntry['group_title'] ?? null
+        );
         $this->assertSame(1, $streamInfo['type'], 'Live channel playlist entries should be classified as live streams.');
         $this->assertSame('live', $streamInfo['category_type']);
+    }
+
+    public function testMetadataHelpsClassifyMovieEntriesWithoutExplicitUrlHints(): void
+    {
+        $streamInfo = getStreamTypeByUrl(
+            'http://proxy.example.com:80/play/abc123',
+            'Relatos de Guerra (2023)',
+            'Filmes | Guerra'
+        );
+
+        $this->assertSame(0, $streamInfo['type']);
+        $this->assertSame('movie', $streamInfo['category_type']);
+    }
+
+    public function testMetadataDetectsSeriesEpisodesByTitlePattern(): void
+    {
+        $streamInfo = getStreamTypeByUrl(
+            'http://proxy.example.com:80/play/xyz',
+            'Os Simpsons S10E45',
+            'Disney Plus'
+        );
+
+        $this->assertSame(0, $streamInfo['type']);
+        $this->assertSame('series', $streamInfo['category_type']);
+    }
+
+    public function testMovieImporterClassificationUsesMetadataHeuristics(): void
+    {
+        $entry = [
+            'url' => 'http://proxy.example.com:80/play/abc123',
+            'tvg_name' => 'Relatos de Guerra (2023)',
+            'group_title' => 'Filmes | Guerra',
+        ];
+
+        $streamInfo = classifyMovieImportEntry($entry);
+
+        $this->assertNotNull($streamInfo);
+        $this->assertSame(2, $streamInfo['type']);
+        $this->assertSame('movie', $streamInfo['category_type']);
+        $this->assertSame(1, $streamInfo['direct_source']);
+    }
+
+    public function testSeriesImporterClassificationUsesTitlePatterns(): void
+    {
+        $entry = [
+            'url' => 'http://proxy.example.com:80/play/xyz',
+            'episode' => 'Os Simpsons S10E45',
+            'group_title' => 'Disney Plus',
+        ];
+
+        $streamInfo = classifySeriesImportEntry($entry);
+
+        $this->assertNotNull($streamInfo);
+        $this->assertSame(5, $streamInfo['type']);
+        $this->assertSame('series', $streamInfo['category_type']);
+        $this->assertSame(1, $streamInfo['direct_source']);
     }
 
     public function testBuildProgressUpdateUsesBrazilianFormatting(): void
