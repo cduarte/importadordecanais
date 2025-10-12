@@ -368,8 +368,18 @@ function extractEntries(string $filePath): \Generator
         'tvg_name' => '',
     ];
 
+    $normalizer = function_exists('importador_normalize_playlist_text') ? 'importador_normalize_playlist_text' : null;
+
     try {
         while (($line = fgets($handle)) !== false) {
+            if (!is_string($line)) {
+                continue;
+            }
+
+            if ($normalizer !== null) {
+                $line = $normalizer($line);
+            }
+
             $line = trim($line);
             if ($line === '') {
                 continue;
@@ -377,11 +387,16 @@ function extractEntries(string $filePath): \Generator
 
             if (stripos($line, '#EXTINF:') === 0) {
                 preg_match('/tvg-logo="(.*?)"/', $line, $logoMatch);
-                $currentInfo['tvg_logo'] = $logoMatch[1] ?? '';
+                $logo = $logoMatch[1] ?? '';
+                $currentInfo['tvg_logo'] = $normalizer !== null ? $normalizer($logo) : $logo;
 
                 $groupTitle = 'Filmes';
                 if (preg_match('/group-title="(.*?)"/', $line, $groupMatch)) {
                     $groupTitle = trim($groupMatch[1]);
+                }
+
+                if ($normalizer !== null) {
+                    $groupTitle = $normalizer($groupTitle);
                 }
 
                 $title = '';
@@ -394,7 +409,11 @@ function extractEntries(string $filePath): \Generator
                     $title = trim($parts[1] ?? '');
                 }
 
-                $currentInfo['group_title'] = $groupTitle ?: 'Filmes';
+                if ($normalizer !== null) {
+                    $title = $normalizer($title);
+                }
+
+                $currentInfo['group_title'] = $groupTitle !== '' ? $groupTitle : 'Filmes';
                 $currentInfo['tvg_name'] = $title;
                 continue;
             }
@@ -406,8 +425,12 @@ function extractEntries(string $filePath): \Generator
             yield [
                 'url' => $line,
                 'tvg_logo' => $currentInfo['tvg_logo'] ?? '',
-                'group_title' => $currentInfo['group_title'] ?? 'Filmes',
-                'tvg_name' => $currentInfo['tvg_name'] ?? '',
+                'group_title' => $normalizer !== null
+                    ? $normalizer($currentInfo['group_title'] ?? 'Filmes')
+                    : ($currentInfo['group_title'] ?? 'Filmes'),
+                'tvg_name' => $normalizer !== null
+                    ? $normalizer($currentInfo['tvg_name'] ?? '')
+                    : ($currentInfo['tvg_name'] ?? ''),
             ];
         }
     } finally {

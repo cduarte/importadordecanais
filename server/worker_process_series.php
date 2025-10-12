@@ -224,8 +224,18 @@ function extractSeriesEntries(string $filePath): Generator
         'episode' => '',
     ];
 
+    $normalizer = function_exists('importador_normalize_playlist_text') ? 'importador_normalize_playlist_text' : null;
+
     try {
         while (($line = fgets($handle)) !== false) {
+            if (!is_string($line)) {
+                continue;
+            }
+
+            if ($normalizer !== null) {
+                $line = $normalizer($line);
+            }
+
             $line = trim($line);
             if ($line === '') {
                 continue;
@@ -233,11 +243,16 @@ function extractSeriesEntries(string $filePath): Generator
 
             if (stripos($line, '#EXTINF:') === 0) {
                 preg_match('/tvg-logo="(.*?)"/i', $line, $logoMatch);
-                $currentInfo['tvg_logo'] = $logoMatch[1] ?? '';
+                $logo = $logoMatch[1] ?? '';
+                $currentInfo['tvg_logo'] = $normalizer !== null ? $normalizer($logo) : $logo;
 
                 $groupTitle = 'Séries';
                 if (preg_match('/group-title="(.*?)"/i', $line, $groupMatch)) {
                     $groupTitle = trim($groupMatch[1]);
+                }
+
+                if ($normalizer !== null) {
+                    $groupTitle = $normalizer($groupTitle);
                 }
 
                 $episodeFull = '';
@@ -250,7 +265,11 @@ function extractSeriesEntries(string $filePath): Generator
                     $episodeFull = trim($parts[1] ?? '');
                 }
 
-                $currentInfo['group_title'] = $groupTitle ?: 'Séries';
+                if ($normalizer !== null) {
+                    $episodeFull = $normalizer($episodeFull);
+                }
+
+                $currentInfo['group_title'] = $groupTitle !== '' ? $groupTitle : 'Séries';
                 $currentInfo['episode'] = $episodeFull;
                 continue;
             }
@@ -262,8 +281,12 @@ function extractSeriesEntries(string $filePath): Generator
             yield [
                 'url' => $line,
                 'tvg_logo' => $currentInfo['tvg_logo'] ?? '',
-                'group_title' => $currentInfo['group_title'] ?? 'Séries',
-                'episode' => $currentInfo['episode'] ?? '',
+                'group_title' => $normalizer !== null
+                    ? $normalizer($currentInfo['group_title'] ?? 'Séries')
+                    : ($currentInfo['group_title'] ?? 'Séries'),
+                'episode' => $normalizer !== null
+                    ? $normalizer($currentInfo['episode'] ?? '')
+                    : ($currentInfo['episode'] ?? ''),
             ];
         }
     } finally {

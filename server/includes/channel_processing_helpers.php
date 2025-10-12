@@ -76,6 +76,73 @@ if (!function_exists('streamHelperTokenize')) {
     }
 }
 
+if (!function_exists('importador_normalize_playlist_text')) {
+    function importador_normalize_playlist_text(?string $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+
+        $value = (string) $value;
+        if ($value === '') {
+            return '';
+        }
+
+        $hasIconv = function_exists('iconv');
+        $needsValidation = function_exists('mb_check_encoding');
+        $hasConvert = function_exists('mb_convert_encoding');
+
+        $looksMisencoded = strpos($value, 'Ã') !== false || strpos($value, 'Â') !== false;
+
+        if ($looksMisencoded) {
+            if ($hasIconv) {
+                $converted = @iconv('UTF-8', 'ISO-8859-1//IGNORE', $value);
+                if ($converted !== false && $converted !== '') {
+                    $value = $converted;
+                    $looksMisencoded = false;
+                }
+            } elseif (function_exists('utf8_decode')) {
+                $value = utf8_decode($value);
+                $looksMisencoded = false;
+            }
+        }
+
+        if ($needsValidation && mb_check_encoding($value, 'UTF-8')) {
+            return $value;
+        }
+
+        $encoding = false;
+        if (function_exists('mb_detect_encoding')) {
+            $encoding = mb_detect_encoding($value, ['UTF-8', 'ISO-8859-1', 'Windows-1252'], true);
+        }
+
+        if ($encoding === false) {
+            $encoding = 'ISO-8859-1';
+        }
+
+        if ($hasConvert) {
+            $converted = @mb_convert_encoding($value, 'UTF-8', $encoding);
+            if (is_string($converted) && $converted !== '') {
+                $value = $converted;
+            }
+        } elseif ($hasIconv) {
+            $converted = @iconv($encoding, 'UTF-8//IGNORE', $value);
+            if ($converted !== false) {
+                $value = $converted;
+            }
+        }
+
+        if ($needsValidation && !mb_check_encoding($value, 'UTF-8') && $hasIconv) {
+            $converted = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
+            if ($converted !== false) {
+                $value = $converted;
+            }
+        }
+
+        return $value;
+    }
+}
+
 if (!function_exists('getStreamTypeByUrl')) {
     function getStreamTypeByUrl(string $url, ?string $title = null, ?string $groupTitle = null): array
     {
@@ -357,8 +424,15 @@ if (!function_exists('extractChannelEntries')) {
             'tvg_name' => '',
         ];
 
+        $normalizer = 'importador_normalize_playlist_text';
+
         try {
             while (($line = fgets($handle)) !== false) {
+                if (!is_string($line)) {
+                    continue;
+                }
+
+                $line = $normalizer($line);
                 $line = trim($line);
                 if ($line === '') {
                     continue;
@@ -366,12 +440,15 @@ if (!function_exists('extractChannelEntries')) {
 
                 if (stripos($line, '#EXTINF:') === 0) {
                     preg_match('/tvg-logo="(.*?)"/', $line, $logoMatch);
-                    $currentInfo['tvg_logo'] = $logoMatch[1] ?? '';
+                    $logo = $logoMatch[1] ?? '';
+                    $currentInfo['tvg_logo'] = $normalizer($logo);
 
                     $groupTitle = 'Canais';
                     if (preg_match('/group-title="(.*?)"/', $line, $groupMatch)) {
                         $groupTitle = trim($groupMatch[1]);
                     }
+
+                    $groupTitle = $normalizer($groupTitle);
 
                     $title = '';
                     $pos = strpos($line, '",');
@@ -382,6 +459,8 @@ if (!function_exists('extractChannelEntries')) {
                         $parts = explode(',', $line, 2);
                         $title = trim($parts[1] ?? '');
                     }
+
+                    $title = $normalizer($title);
 
                     $currentInfo['group_title'] = $groupTitle !== '' ? $groupTitle : 'Canais';
                     $currentInfo['tvg_name'] = $title !== '' ? $title : 'Sem Nome';
@@ -395,8 +474,8 @@ if (!function_exists('extractChannelEntries')) {
                 yield [
                     'url' => $line,
                     'tvg_logo' => $currentInfo['tvg_logo'] ?? '',
-                    'group_title' => $currentInfo['group_title'] ?? 'Canais',
-                    'tvg_name' => $currentInfo['tvg_name'] ?? 'Sem Nome',
+                    'group_title' => $normalizer($currentInfo['group_title'] ?? 'Canais'),
+                    'tvg_name' => $normalizer($currentInfo['tvg_name'] ?? 'Sem Nome'),
                 ];
             }
         } finally {
