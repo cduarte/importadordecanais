@@ -94,20 +94,54 @@ if (!function_exists('importador_normalize_playlist_text')) {
 
         $looksMisencoded = strpos($value, 'Ã') !== false || strpos($value, 'Â') !== false;
 
-        if ($looksMisencoded) {
-            if ($hasIconv) {
-                $converted = @iconv('ISO-8859-1', 'UTF-8//IGNORE', $value);
-                if ($converted !== false && $converted !== '') {
-                    $value = $converted;
-                    $looksMisencoded = false;
-                }
-            } elseif (function_exists('utf8_encode')) {
-                $value = utf8_encode($value);
-                $looksMisencoded = false;
+        if ($looksMisencoded && strpos($value, 'ÃÂ') !== false) {
+            $previous = null;
+            while ($previous !== $value) {
+                $previous = $value;
+                $value = str_replace('ÃÂ', 'Ã', $value);
             }
+
+            $looksMisencoded = strpos($value, 'Ã') !== false || strpos($value, 'Â') !== false;
         }
 
-        if ($needsValidation && mb_check_encoding($value, 'UTF-8')) {
+        if ($looksMisencoded) {
+            // Problematic playlist source still returning these strings:
+            // http://dnscine.top:80/get.php?username=112596650&password=664622414&type=m3u_plus&output=ts
+            $misencodedCount = substr_count($value, 'Ã') + substr_count($value, 'Â');
+
+            if ($hasConvert) {
+                $converted = @mb_convert_encoding($value, 'ISO-8859-1', 'UTF-8');
+                if (is_string($converted) && $converted !== '') {
+                    $convertedCount = substr_count($converted, 'Ã') + substr_count($converted, 'Â');
+                    if ($convertedCount <= $misencodedCount) {
+                        $value = $converted;
+                        $misencodedCount = $convertedCount;
+                    }
+                }
+            } elseif ($hasIconv) {
+                $converted = @iconv('UTF-8', 'ISO-8859-1//IGNORE', $value);
+                if ($converted !== false && $converted !== '') {
+                    $convertedCount = substr_count($converted, 'Ã') + substr_count($converted, 'Â');
+                    if ($convertedCount <= $misencodedCount) {
+                        $value = $converted;
+                        $misencodedCount = $convertedCount;
+                    }
+                }
+            } elseif (function_exists('utf8_decode')) {
+                $converted = utf8_decode($value);
+                if ($converted !== '') {
+                    $convertedCount = substr_count($converted, 'Ã') + substr_count($converted, 'Â');
+                    if ($convertedCount <= $misencodedCount) {
+                        $value = $converted;
+                        $misencodedCount = $convertedCount;
+                    }
+                }
+            }
+
+            $looksMisencoded = $misencodedCount > 0;
+        }
+
+        if ($needsValidation && mb_check_encoding($value, 'UTF-8') && !$looksMisencoded) {
             return $value;
         }
 
