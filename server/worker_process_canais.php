@@ -316,7 +316,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             try {
                 $insertStmt->execute([
                     ':type' => 1,
-                    ':category_id' => $categoryId,
+                    ':category_id' => '[' . $categoryId . ']',
                     ':name' => $displayName,
                     ':source' => $streamSource,
                     ':icon' => $entry['tvg_logo'] ?? '',
