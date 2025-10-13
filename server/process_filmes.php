@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/includes/encoding_helpers.php';
+
+importador_configure_utf8_environment();
+
 if (!function_exists('importador_load_env')) {
     function importador_load_env(): void
     {
@@ -153,6 +157,7 @@ try {
         $adminDbPass,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
+    importador_configure_pdo_utf8($adminPdo);
 } catch (PDOException $e) {
     sendJsonResponse(['error' => 'Erro no servidor: ' . $e->getMessage()], 500);
 }
@@ -189,7 +194,7 @@ if (!filter_var($m3uUrl, FILTER_VALIDATE_URL)) {
 }
 
 try {
-    new PDO(
+    $testPdo = new PDO(
         "mysql:host={$host};dbname={$dbname};charset=utf8mb4",
         $user,
         $pass,
@@ -198,6 +203,8 @@ try {
             PDO::ATTR_EMULATE_PREPARES => false,
         ]
     );
+    importador_configure_pdo_utf8($testPdo);
+    $testPdo = null;
 } catch (PDOException $e) {
     $msg = $e->getMessage();
 

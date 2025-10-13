@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/includes/encoding_helpers.php';
+
+importador_configure_utf8_environment();
+
 if (!function_exists('importador_load_env')) {
     function importador_load_env(): void
     {
@@ -595,6 +599,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]
         );
+        importador_configure_pdo_utf8($pdo);
     } catch (PDOException $e) {
         throw new RuntimeException('Erro ao conectar no banco de dados de destino: ' . $e->getMessage());
     }
@@ -932,6 +937,7 @@ try {
         $adminDbPass,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
+    importador_configure_pdo_utf8($adminPdo);
 } catch (PDOException $e) {
     logInfo('Erro ao conectar no banco administrador: ' . $e->getMessage());
     exit(1);
