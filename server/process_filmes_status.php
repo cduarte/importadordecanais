@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/includes/encoding_helpers.php';
+
+importador_configure_utf8_environment();
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 
@@ -17,6 +21,7 @@ try {
         $adminDbPass,
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
+    importador_configure_pdo_utf8($adminPdo);
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode(['error' => 'Erro ao conectar ao banco administrador: ' . $e->getMessage()]);
