@@ -96,13 +96,13 @@ if (!function_exists('importador_normalize_playlist_text')) {
 
         if ($looksMisencoded) {
             if ($hasIconv) {
-                $converted = @iconv('UTF-8', 'ISO-8859-1//IGNORE', $value);
+                $converted = @iconv('ISO-8859-1', 'UTF-8//IGNORE', $value);
                 if ($converted !== false && $converted !== '') {
                     $value = $converted;
                     $looksMisencoded = false;
                 }
-            } elseif (function_exists('utf8_decode')) {
-                $value = utf8_decode($value);
+            } elseif (function_exists('utf8_encode')) {
+                $value = utf8_encode($value);
                 $looksMisencoded = false;
             }
         }
