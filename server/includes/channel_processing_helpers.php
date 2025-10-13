@@ -76,6 +76,61 @@ if (!function_exists('streamHelperTokenize')) {
     }
 }
 
+if (!function_exists('importador_detect_double_encoded_text')) {
+    function importador_detect_double_encoded_text(string $value): bool
+    {
+        if ($value === '') {
+            return false;
+        }
+
+        if (!function_exists('preg_match')) {
+            return strpos($value, 'Ã') !== false || strpos($value, 'Â') !== false || strpos($value, 'â') !== false;
+        }
+
+        $patterns = [
+            'Ã' => '/Ã[\x{0080}-\x{FFFF}]/u',
+            'Â' => '/Â[\x{0080}-\x{FFFF}]/u',
+            'â' => '/â[\x{0080}-\x{FFFF}]/u',
+        ];
+
+        foreach ($patterns as $needle => $pattern) {
+            if (strpos($value, $needle) !== false && preg_match($pattern, $value)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('importador_count_suspicious_encoding_sequences')) {
+    function importador_count_suspicious_encoding_sequences(string $value): int
+    {
+        if ($value === '') {
+            return 0;
+        }
+
+        if (!function_exists('preg_match_all')) {
+            return substr_count($value, 'Ã') + substr_count($value, 'Â') + substr_count($value, 'â');
+        }
+
+        $patterns = [
+            '/Ã[\x{0080}-\x{FFFF}]/u',
+            '/Â[\x{0080}-\x{FFFF}]/u',
+            '/â[\x{0080}-\x{FFFF}]/u',
+        ];
+
+        $count = 0;
+        foreach ($patterns as $pattern) {
+            if (preg_match_all($pattern, $value, $matches)) {
+                $count += count($matches[0]);
+            }
+        }
+
+        return $count;
+    }
+}
+
 if (!function_exists('importador_fix_double_encoded_sequences')) {
     function importador_fix_double_encoded_sequences(string $value): string
     {
@@ -111,6 +166,26 @@ if (!function_exists('importador_fix_double_encoded_sequences')) {
                     $doubleEncodedMap[$misencoded] = $original;
                 }
             }
+
+            // Handle common cases produced by multiple incorrect conversions.
+            $doubleEncodedMap['Â€¢'] = '•';
+            $doubleEncodedMap['Â€'] = '€';
+            $doubleEncodedMap['Â¢'] = '¢';
+            $doubleEncodedMap['Â£'] = '£';
+            $doubleEncodedMap['Â¥'] = '¥';
+            $doubleEncodedMap['Â§'] = '§';
+            $doubleEncodedMap['Â©'] = '©';
+            $doubleEncodedMap['Â«'] = '«';
+            $doubleEncodedMap['Â®'] = '®';
+            $doubleEncodedMap['Â°'] = '°';
+            $doubleEncodedMap['Â±'] = '±';
+            $doubleEncodedMap['Â²'] = '²';
+            $doubleEncodedMap['Â³'] = '³';
+            $doubleEncodedMap['Âµ'] = 'µ';
+            $doubleEncodedMap['Â·'] = '·';
+            $doubleEncodedMap['Â¹'] = '¹';
+            $doubleEncodedMap['Âº'] = 'º';
+            $doubleEncodedMap['Â»'] = '»';
         }
 
         if (empty($doubleEncodedMap)) {
@@ -137,18 +212,32 @@ if (!function_exists('importador_normalize_playlist_text')) {
         $needsValidation = function_exists('mb_check_encoding');
         $hasConvert = function_exists('mb_convert_encoding');
 
-        $looksMisencoded = strpos($value, 'Ã') !== false || strpos($value, 'Â') !== false;
+        $looksMisencoded = importador_detect_double_encoded_text($value);
 
         if ($looksMisencoded) {
+            $baseSuspiciousScore = importador_count_suspicious_encoding_sequences($value);
+
             if ($hasIconv) {
-                $value = importador_fix_double_encoded_sequences($value);
-                $looksMisencoded = strpos($value, 'Ã') !== false || strpos($value, 'Â') !== false;
+                $fixed = importador_fix_double_encoded_sequences($value);
+                if ($fixed !== $value) {
+                    $fixedScore = importador_count_suspicious_encoding_sequences($fixed);
+                    if ($fixedScore < $baseSuspiciousScore) {
+                        $value = $fixed;
+                        $baseSuspiciousScore = $fixedScore;
+                    }
+                }
+
+                $looksMisencoded = importador_detect_double_encoded_text($value);
 
                 if ($looksMisencoded) {
                     $converted = @iconv('ISO-8859-1', 'UTF-8//IGNORE', $value);
                     if ($converted !== false && $converted !== '') {
-                        $value = $converted;
-                        $looksMisencoded = false;
+                        $convertedScore = importador_count_suspicious_encoding_sequences($converted);
+                        if ($convertedScore < $baseSuspiciousScore) {
+                            $value = $converted;
+                            $baseSuspiciousScore = $convertedScore;
+                            $looksMisencoded = false;
+                        }
                     }
                 }
             } elseif (function_exists('utf8_encode')) {
