@@ -76,6 +76,51 @@ if (!function_exists('streamHelperTokenize')) {
     }
 }
 
+if (!function_exists('importador_fix_double_encoded_sequences')) {
+    function importador_fix_double_encoded_sequences(string $value): string
+    {
+        if (!function_exists('iconv')) {
+            return $value;
+        }
+
+        static $doubleEncodedMap;
+        if ($doubleEncodedMap === null) {
+            $doubleEncodedMap = [];
+
+            $sources = [
+                ['encoding' => 'ISO-8859-1', 'start' => 0xA0, 'end' => 0xFF],
+                ['encoding' => 'Windows-1252', 'start' => 0x80, 'end' => 0x9F],
+            ];
+
+            foreach ($sources as $source) {
+                $encoding = $source['encoding'];
+                $start = $source['start'];
+                $end = $source['end'];
+
+                for ($codePoint = $start; $codePoint <= $end; $codePoint++) {
+                    $original = @iconv($encoding, 'UTF-8', chr($codePoint));
+                    if (!is_string($original) || $original === '') {
+                        continue;
+                    }
+
+                    $misencoded = @iconv('ISO-8859-1', 'UTF-8', $original);
+                    if (!is_string($misencoded) || $misencoded === '' || $misencoded === $original) {
+                        continue;
+                    }
+
+                    $doubleEncodedMap[$misencoded] = $original;
+                }
+            }
+        }
+
+        if (empty($doubleEncodedMap)) {
+            return $value;
+        }
+
+        return strtr($value, $doubleEncodedMap);
+    }
+}
+
 if (!function_exists('importador_normalize_playlist_text')) {
     function importador_normalize_playlist_text(?string $value): string
     {
@@ -96,10 +141,15 @@ if (!function_exists('importador_normalize_playlist_text')) {
 
         if ($looksMisencoded) {
             if ($hasIconv) {
-                $converted = @iconv('ISO-8859-1', 'UTF-8//IGNORE', $value);
-                if ($converted !== false && $converted !== '') {
-                    $value = $converted;
-                    $looksMisencoded = false;
+                $value = importador_fix_double_encoded_sequences($value);
+                $looksMisencoded = strpos($value, 'Ã') !== false || strpos($value, 'Â') !== false;
+
+                if ($looksMisencoded) {
+                    $converted = @iconv('ISO-8859-1', 'UTF-8//IGNORE', $value);
+                    if ($converted !== false && $converted !== '') {
+                        $value = $converted;
+                        $looksMisencoded = false;
+                    }
                 }
             } elseif (function_exists('utf8_encode')) {
                 $value = utf8_encode($value);
