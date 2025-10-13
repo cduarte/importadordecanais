@@ -146,6 +146,20 @@ function fetchJob(PDO $adminPdo, int $jobId): ?array
     return $job ?: null;
 }
 
+function buildCategoryCacheKey(string $categoryName, string $categoryType): string
+{
+    $key = trim($categoryType) . '|' . trim($categoryName);
+
+    return function_exists('mb_strtolower') ? mb_strtolower($key, 'UTF-8') : strtolower($key);
+}
+
+function isAdultCategory(string $categoryName): bool
+{
+    return stripos($categoryName, 'adulto') !== false
+        || stripos($categoryName, 'xxx') !== false
+        || stripos($categoryName, 'onlyfans') !== false;
+}
+
 function getCategoryId(PDO $pdo, string $categoryName, string $categoryType): int
 {
     static $cache = [];
@@ -153,26 +167,31 @@ function getCategoryId(PDO $pdo, string $categoryName, string $categoryType): in
     $categoryName = trim($categoryName) !== '' ? trim($categoryName) : 'Canais';
     $categoryType = trim($categoryType) !== '' ? trim($categoryType) : 'live';
 
-    $cacheKey = strtolower($categoryType . '|' . $categoryName);
+    $cacheKey = buildCategoryCacheKey($categoryName, $categoryType);
     if (isset($cache[$cacheKey])) {
         return $cache[$cacheKey];
     }
 
-    $stmt = $pdo->prepare('SELECT id FROM streams_categories WHERE category_name = :name LIMIT 1');
-    $stmt->execute([':name' => $categoryName]);
+    $stmt = $pdo->prepare('SELECT id FROM streams_categories WHERE category_name = :name AND category_type = :type LIMIT 1');
+    $stmt->execute([':name' => $categoryName, ':type' => $categoryType]);
     $res = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($res) {
-        $cache[$cacheKey] = (int) $res['id'];
-        return (int) $res['id'];
+        $categoryId = (int) $res['id'];
+        $cache[$cacheKey] = $categoryId;
+        return $categoryId;
     }
+
+    $isAdult = isAdultCategory($categoryName);
 
     $insert = $pdo->prepare('
         INSERT INTO streams_categories (category_type, category_name, parent_id, cat_order, is_adult)
-        VALUES (:type, :name, 0, 99, 0)
+        VALUES (:type, :name, 0, :cat_order, :is_adult)
     ');
     $insert->execute([
         ':type' => $categoryType,
         ':name' => $categoryName,
+        ':cat_order' => $isAdult ? 9999 : 99,
+        ':is_adult' => $isAdult ? 1 : 0,
     ]);
 
     $lastId = (int) $pdo->lastInsertId();
