@@ -95,14 +95,20 @@ if (!function_exists('importador_normalize_playlist_text')) {
         $looksMisencoded = strpos($value, 'Ã') !== false || strpos($value, 'Â') !== false;
 
         if ($looksMisencoded) {
-            if ($hasIconv) {
-                $converted = @iconv('ISO-8859-1', 'UTF-8//IGNORE', $value);
+            if ($hasConvert) {
+                $converted = @mb_convert_encoding($value, 'ISO-8859-1', 'UTF-8');
+                if (is_string($converted) && $converted !== '') {
+                    $value = $converted;
+                    $looksMisencoded = false;
+                }
+            } elseif ($hasIconv) {
+                $converted = @iconv('UTF-8', 'ISO-8859-1//IGNORE', $value);
                 if ($converted !== false && $converted !== '') {
                     $value = $converted;
                     $looksMisencoded = false;
                 }
-            } elseif (function_exists('utf8_encode')) {
-                $value = utf8_encode($value);
+            } elseif (function_exists('utf8_decode')) {
+                $value = utf8_decode($value);
                 $looksMisencoded = false;
             }
         }
