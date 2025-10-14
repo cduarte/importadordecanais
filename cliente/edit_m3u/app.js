@@ -26,9 +26,20 @@
 
     function splitInfoLine(info) {
         let inQuotes = false;
+        let escaped = false;
 
         for (let i = 0; i < info.length; i += 1) {
             const char = info[i];
+
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+
+            if (char === '\\') {
+                escaped = true;
+                continue;
+            }
 
             if (char === '"') {
                 inQuotes = !inQuotes;
