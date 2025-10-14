@@ -24,6 +24,31 @@
         return 'ch-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
     }
 
+    function splitInfoLine(info) {
+        let inQuotes = false;
+
+        for (let i = 0; i < info.length; i += 1) {
+            const char = info[i];
+
+            if (char === '"') {
+                inQuotes = !inQuotes;
+                continue;
+            }
+
+            if (char === ',' && !inQuotes) {
+                return {
+                    attributes: info.substring(0, i).trim(),
+                    title: info.substring(i + 1).trim()
+                };
+            }
+        }
+
+        return {
+            attributes: '',
+            title: info.trim()
+        };
+    }
+
     function parseM3U(text) {
         const lines = text.replace(/\r\n?/g, '\n').split('\n');
         const parsed = [];
@@ -35,9 +60,7 @@
 
             if (line.startsWith('#EXTINF')) {
                 const info = line.substring(line.indexOf(':') + 1).trim();
-                const lastComma = info.lastIndexOf(',');
-                const attributesPart = lastComma >= 0 ? info.substring(0, lastComma).trim() : '';
-                const title = lastComma >= 0 ? info.substring(lastComma + 1).trim() : info;
+                const { attributes: attributesPart, title } = splitInfoLine(info);
                 const attributes = {};
                 const extras = [];
 
