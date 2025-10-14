@@ -549,6 +549,14 @@
         if (field === 'name') {
             channel.tvgName = input.value;
         }
+        updateExportPreview();
+        updateActionsState();
+    });
+
+    channelsTable.addEventListener('change', (event) => {
+        const input = event.target;
+        if (!(input instanceof HTMLInputElement)) return;
+        if (!input.dataset.field) return;
         render();
     });
 
