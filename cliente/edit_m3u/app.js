@@ -47,6 +47,9 @@
     const editAvailableCount = document.getElementById('editAvailableCount');
     const editSelectedCount = document.getElementById('editSelectedCount');
     const btnCloseEdit = document.getElementById('btnCloseEdit');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const uploadProgressFill = document.getElementById('uploadProgressFill');
+    const uploadProgressLabel = document.getElementById('uploadProgressLabel');
 
     const knownAttributes = ['tvg-id', 'tvg-name', 'tvg-logo', 'group-title'];
     const uploadEndpointMeta = document.querySelector('meta[name="edit-m3u-upload-endpoint"]');
@@ -91,6 +94,59 @@
         });
     }
 
+    function showUploadProgress(message = 'Enviando playlist...') {
+        if (!uploadProgress) {
+            return;
+        }
+
+        uploadProgress.hidden = false;
+        uploadProgress.classList.remove('is-indeterminate');
+
+        if (uploadProgressFill) {
+            uploadProgressFill.style.width = '0%';
+            uploadProgressFill.style.transform = 'translateX(0)';
+        }
+
+        if (uploadProgressLabel && typeof message === 'string') {
+            uploadProgressLabel.textContent = message;
+        }
+    }
+
+    function updateUploadProgress({ loaded = 0, total = null, message = null, isComplete = false } = {}) {
+        if (!uploadProgress) {
+            return;
+        }
+
+        if (typeof message === 'string' && uploadProgressLabel) {
+            uploadProgressLabel.textContent = message;
+        }
+
+        if (typeof total === 'number' && total > 0) {
+            const percent = isComplete ? 100 : Math.min(100, Math.round((loaded / total) * 100));
+            uploadProgress.classList.remove('is-indeterminate');
+            if (uploadProgressFill) {
+                uploadProgressFill.style.width = `${percent}%`;
+                uploadProgressFill.style.transform = 'translateX(0)';
+            }
+        } else {
+            uploadProgress.classList.add('is-indeterminate');
+        }
+    }
+
+    function hideUploadProgress() {
+        if (!uploadProgress) {
+            return;
+        }
+
+        uploadProgress.hidden = true;
+        uploadProgress.classList.remove('is-indeterminate');
+
+        if (uploadProgressFill) {
+            uploadProgressFill.style.width = '0%';
+            uploadProgressFill.style.transform = 'translateX(0)';
+        }
+    }
+
     function switchLandingTab(targetKey) {
         if (!targetKey) {
             return;
@@ -119,7 +175,7 @@
         clearLandingStatus();
     }
 
-    async function uploadPlaylistPayload({ file, url }) {
+    async function uploadPlaylistPayload({ file, url, onProgress } = {}) {
         const formData = new FormData();
         if (file) {
             formData.append('playlist', file);
@@ -128,26 +184,78 @@
             formData.append('playlist_url', url);
         }
 
-        const response = await fetch(uploadEndpoint, {
-            method: 'POST',
-            body: formData,
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const initialTotal = typeof file?.size === 'number' ? file.size : null;
+
+            const emitProgress = (details) => {
+                if (typeof onProgress === 'function') {
+                    onProgress(details);
+                }
+            };
+
+            xhr.open('POST', uploadEndpoint, true);
+            xhr.responseType = 'json';
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+            emitProgress({
+                loaded: 0,
+                total: initialTotal,
+                lengthComputable: typeof initialTotal === 'number',
+            });
+
+            if (xhr.upload && typeof onProgress === 'function') {
+                xhr.upload.addEventListener('progress', (event) => {
+                    emitProgress({
+                        loaded: event.loaded,
+                        total: event.lengthComputable ? event.total : initialTotal,
+                        lengthComputable: event.lengthComputable,
+                    });
+                });
+            }
+
+            xhr.onload = () => {
+                const status = xhr.status;
+                let payload = xhr.response;
+
+                if (!payload || typeof payload !== 'object') {
+                    const raw = typeof xhr.responseText === 'string' ? xhr.responseText.trim() : '';
+                    if (raw) {
+                        try {
+                            payload = JSON.parse(raw);
+                        } catch (parseError) {
+                            payload = null;
+                        }
+                    }
+                }
+
+                if (status >= 200 && status < 300 && payload?.success === true) {
+                    emitProgress({
+                        loaded: initialTotal ?? 0,
+                        total: initialTotal,
+                        lengthComputable: typeof initialTotal === 'number',
+                        isComplete: true,
+                    });
+                    resolve(payload);
+                    return;
+                }
+
+                const message = typeof payload?.error === 'string' && payload.error.trim()
+                    ? payload.error.trim()
+                    : 'Não foi possível processar a playlist enviada.';
+                reject(new Error(message));
+            };
+
+            xhr.onerror = () => {
+                reject(new Error('Não foi possível enviar a playlist. Verifique sua conexão e tente novamente.'));
+            };
+
+            xhr.onabort = () => {
+                reject(new Error('O envio da playlist foi cancelado.'));
+            };
+
+            xhr.send(formData);
         });
-
-        let payload;
-        try {
-            payload = await response.json();
-        } catch (error) {
-            throw new Error('Resposta inválida do servidor.');
-        }
-
-        if (!response.ok || !payload || payload.success !== true) {
-            const message = typeof payload?.error === 'string' && payload.error.trim()
-                ? payload.error.trim()
-                : 'Não foi possível processar a playlist enviada.';
-            throw new Error(message);
-        }
-
-        return payload;
     }
 
     function handlePlaylistPayload(payload) {
@@ -655,13 +763,45 @@
             }
         };
 
+        const fileSize = typeof file.size === 'number' && Number.isFinite(file.size) ? file.size : null;
+        const uploadMessage = `Enviando ${file.name || 'playlist.m3u'}...`;
+
+        const handleProgress = ({ loaded = 0, total = null, isComplete = false } = {}) => {
+            const effectiveTotal = typeof total === 'number' && total > 0 ? total : fileSize;
+            const numericLoaded = typeof loaded === 'number' && loaded >= 0 ? loaded : 0;
+            const limitedLoaded = effectiveTotal ? Math.min(numericLoaded, effectiveTotal) : numericLoaded;
+
+            let message = uploadMessage;
+            if (effectiveTotal) {
+                const percent = isComplete ? 100 : Math.min(100, Math.round((limitedLoaded / effectiveTotal) * 100));
+                message = `${uploadMessage} (${percent}%)`;
+            }
+
+            if (isComplete) {
+                message = 'Processando playlist...';
+            }
+
+            updateUploadProgress({
+                loaded: limitedLoaded,
+                total: effectiveTotal,
+                message,
+                isComplete,
+            });
+        };
+
         try {
             if (fromLanding) {
                 setLandingBusy(true);
                 setLandingStatus(`Processando ${file.name || 'playlist.m3u'}...`, 'info');
             }
 
-            const payload = await uploadPlaylistPayload({ file });
+            showUploadProgress(uploadMessage);
+            handleProgress({ loaded: 0, total: fileSize, isComplete: false });
+
+            const payload = await uploadPlaylistPayload({
+                file,
+                onProgress: handleProgress,
+            });
             handlePlaylistPayload(payload);
 
             if (fromLanding) {
@@ -679,6 +819,7 @@
             if (fromLanding) {
                 setLandingBusy(false);
             }
+            hideUploadProgress();
             resetInput();
         }
     }
@@ -692,7 +833,26 @@
                 setLandingStatus('Baixando playlist da URL informada...', 'info');
             }
 
-            const payload = await uploadPlaylistPayload({ url });
+            const message = 'Baixando playlist...';
+            showUploadProgress(message);
+            updateUploadProgress({
+                loaded: 0,
+                total: null,
+                message,
+                isComplete: false,
+            });
+
+            const payload = await uploadPlaylistPayload({
+                url,
+                onProgress: ({ isComplete = false } = {}) => {
+                    updateUploadProgress({
+                        loaded: 0,
+                        total: null,
+                        message: isComplete ? 'Processando playlist...' : message,
+                        isComplete,
+                    });
+                },
+            });
             handlePlaylistPayload(payload);
 
             if (fromLanding) {
@@ -713,6 +873,7 @@
             if (fromLanding) {
                 setLandingBusy(false);
             }
+            hideUploadProgress();
         }
     }
 

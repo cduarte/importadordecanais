@@ -185,6 +185,13 @@ http://exemplo.com/stream"></textarea>
         </div>
     </div>
 
+    <div class="upload-progress" id="uploadProgress" hidden role="status" aria-live="polite">
+        <div class="upload-progress-bar">
+            <div class="upload-progress-fill" id="uploadProgressFill"></div>
+        </div>
+        <span class="upload-progress-label" id="uploadProgressLabel">Enviando playlist...</span>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>

@@ -954,3 +954,61 @@ body {
     }
 }
 
+.upload-progress {
+    position: fixed;
+    right: 1.5rem;
+    bottom: 1.5rem;
+    width: min(320px, calc(100% - 2rem));
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-lg);
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    z-index: 2000;
+}
+
+.upload-progress-bar {
+    position: relative;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.25);
+    overflow: hidden;
+}
+
+.upload-progress-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 0%;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.85), rgba(59, 130, 246, 0.45));
+    border-radius: inherit;
+    transition: width 0.25s ease;
+}
+
+.upload-progress.is-indeterminate .upload-progress-fill {
+    width: 40%;
+    animation: upload-progress-indeterminate 1.4s ease-in-out infinite;
+}
+
+.upload-progress-label {
+    font-size: 0.9rem;
+    color: rgba(226, 232, 240, 0.9);
+}
+
+@keyframes upload-progress-indeterminate {
+    0% {
+        transform: translateX(-100%);
+    }
+    50% {
+        transform: translateX(150%);
+    }
+    100% {
+        transform: translateX(150%);
+    }
+}
+
