@@ -305,7 +305,7 @@ HTML
             border-radius: 10px;
             box-shadow: 0 26px 56px rgba(5, 9, 22, 0.55);
             backdrop-filter: blur(16px);
-            overflow: hidden;
+            overflow: visible;
             z-index: 1000;
         }
 
@@ -317,6 +317,7 @@ HTML
                         radial-gradient(circle at bottom right, rgba(30, 64, 175, 0.18), transparent 55%);
             pointer-events: none;
             opacity: 0.9;
+            border-radius: inherit;
         }
 
         .nav-bar {
@@ -1072,6 +1073,11 @@ HTML
 
         /* Responsividade aprimorada */
         @media (max-width: 768px) {
+            .nav-container {
+                width: 100%;
+                margin: 0 0 1.25rem;
+            }
+
             .container {
                 padding: 1.5rem 1rem;
             }
