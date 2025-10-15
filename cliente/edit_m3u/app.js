@@ -900,9 +900,10 @@
         resetPagination(['editAvailable', 'editSelected']);
         toggleEditPanel(true);
         renderEditPanel();
-        requestAnimationFrame(() => {
-            editPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
+        // A rolagem automática para o painel de edição fazia a página descer
+        // inesperadamente sempre que o usuário tentava editar uma categoria.
+        // Mantemos o foco visual no ponto atual removendo o scroll forçado,
+        // permitindo que o usuário controle manualmente a navegação.
     }
 
     function closeEditPanel() {
