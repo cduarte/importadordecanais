@@ -263,7 +263,6 @@ function publicPath(string $absolutePath): string
                         <span>ou clique para selecionar um arquivo</span>
                     </div>
                     <input type="file" name="m3u_file" id="m3u_file" accept=".m3u,.txt" hidden>
-                    <p class="hint">Escolha o arquivo .m3u enviado pelo seu provedor ou arraste-o para esta área.</p>
                 </div>
 
                 <div class="mode-pane<?php echo $activeMode === 'url' ? ' active' : ''; ?>" data-mode="url">
@@ -274,10 +273,9 @@ function publicPath(string $absolutePath): string
                         </svg>
                         <div class="url-fields">
                             <strong>Cole a URL da sua lista M3U</strong>
-                            <input type="url" name="m3u_url" id="m3u_url" placeholder="https://seuprovedor.com/lista.m3u" value="<?php echo isset($_POST['m3u_url']) ? htmlspecialchars((string)$_POST['m3u_url'], ENT_QUOTES, 'UTF-8') : ''; ?>" aria-label="URL da lista M3U"<?php echo $activeMode === 'url' ? ' required' : ''; ?>>
+                            <input type="url" name="m3u_url" id="m3u_url" placeholder="https://url.com/lista.m3u" value="<?php echo isset($_POST['m3u_url']) ? htmlspecialchars((string)$_POST['m3u_url'], ENT_QUOTES, 'UTF-8') : ''; ?>" aria-label="URL da lista M3U"<?php echo $activeMode === 'url' ? ' required' : ''; ?>>
                         </div>
                     </div>
-                    <p class="hint">Utilize um link direto para o arquivo .m3u hospedado pelo fornecedor.</p>
                 </div>
             </div>
 
@@ -287,17 +285,16 @@ function publicPath(string $absolutePath): string
 
             <footer>
                 <button type="submit">Processar lista</button>
-                <p class="footnote">Alterne entre URL ou arquivo conforme a lista disponível.</p>
             </footer>
         </form>
 
         <?php if ($results): ?>
             <section class="results">
                 <h2>Arquivos gerados</h2>
-                <p>Os arquivos foram separados por categoria nas pastas de Canais, Filmes e Séries.</p>
                 <?php if ($results['zip']): ?>
                     <p><a href="<?php echo htmlspecialchars(publicPath($results['zip']), ENT_QUOTES, 'UTF-8'); ?>" download>Baixar todas as categorias (.zip)</a></p>
                 <?php endif; ?>
+                <p>Ou baixe uma categoria unica especifica abaixo:</p>
                 <ul>
                     <?php foreach ($results['files'] as $file): ?>
                         <li>
