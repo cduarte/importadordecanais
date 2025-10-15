@@ -124,7 +124,7 @@ $currentNavKey = 'edit_m3u';
                     </ol>
                 </section>
 
-                <section class="board-grid">
+                <section class="board-grid" id="boardGrid">
                     <article class="card board">
                         <header class="board-header">
                             <div>
@@ -158,6 +158,38 @@ $currentNavKey = 'edit_m3u';
                             <div class="pagination" id="selectedPagination" hidden></div>
                         </div>
                     </article>
+                </section>
+
+                <section class="card edit-panel hidden" id="editPanel" aria-labelledby="editPanelTitle">
+                    <header class="edit-panel-header">
+                        <div>
+                            <h3 id="editPanelTitle">Editar grupo</h3>
+                            <p id="editPanelSubtitle">Gerencie os canais que fazem parte desta categoria.</p>
+                        </div>
+                        <div class="edit-panel-actions">
+                            <button id="btnCloseEdit" class="primary-button">Concluir edição</button>
+                        </div>
+                    </header>
+                    <div class="dual-lists">
+                        <section class="dual-column">
+                            <h3>Canais disponíveis <span id="editAvailableCount">0</span></h3>
+                            <div class="dual-list-container">
+                                <div class="dual-list" id="editAvailableList">
+                                    <p class="empty-state small">Nenhum canal disponível para este grupo.</p>
+                                </div>
+                                <div class="pagination pagination-compact" id="editAvailablePagination" hidden></div>
+                            </div>
+                        </section>
+                        <section class="dual-column">
+                            <h3>Canais selecionados <span id="editSelectedCount">0</span></h3>
+                            <div class="dual-list-container">
+                                <div class="dual-list" id="editSelectedList">
+                                    <p class="empty-state small">Nenhum canal selecionado para exportação.</p>
+                                </div>
+                                <div class="pagination pagination-compact" id="editSelectedPagination" hidden></div>
+                            </div>
+                        </section>
+                    </div>
                 </section>
 
                 <section class="card preview-panel">
@@ -194,38 +226,6 @@ http://exemplo.com/stream"></textarea>
             <footer class="modal-actions">
                 <button id="btnImportText" class="primary-button">Importar</button>
                 <button id="btnCloseModal" class="ghost-button">Cancelar</button>
-            </footer>
-        </div>
-    </div>
-
-    <div class="modal" id="editGroupModal" hidden>
-        <div class="modal-card modal-large">
-            <header>
-                <h2 id="editModalTitle">Editar grupo</h2>
-                <p id="editModalSubtitle">Gerencie os canais que fazem parte desta categoria.</p>
-            </header>
-            <div class="dual-lists">
-                <section class="dual-column">
-                    <h3>Canais disponíveis <span id="editAvailableCount">0</span></h3>
-                    <div class="dual-list-container">
-                        <div class="dual-list" id="editAvailableList">
-                            <p class="empty-state small">Nenhum canal disponível para este grupo.</p>
-                        </div>
-                        <div class="pagination pagination-compact" id="editAvailablePagination" hidden></div>
-                    </div>
-                </section>
-                <section class="dual-column">
-                    <h3>Canais selecionados <span id="editSelectedCount">0</span></h3>
-                    <div class="dual-list-container">
-                        <div class="dual-list" id="editSelectedList">
-                            <p class="empty-state small">Nenhum canal selecionado para exportação.</p>
-                        </div>
-                        <div class="pagination pagination-compact" id="editSelectedPagination" hidden></div>
-                    </div>
-                </section>
-            </div>
-            <footer class="modal-actions">
-                <button id="btnCloseEdit" class="primary-button">Concluir edição</button>
             </footer>
         </div>
     </div>
