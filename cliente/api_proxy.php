@@ -148,8 +148,16 @@ curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
 $responseBody = curl_exec($curl);
 
 if ($responseBody === false) {
+    $curlError = curl_error($curl);
+    $curlErrno = curl_errno($curl);
     curl_close($curl);
-    respondJson(['error' => 'Não foi possível contactar o serviço de importação.'], 502);
+
+    $message = 'Não foi possível contactar o serviço de importação.';
+    if ($curlError !== '') {
+        $message .= sprintf(' (cURL #%d: %s)', $curlErrno, $curlError);
+    }
+
+    respondJson(['error' => $message], 502);
 }
 
 $httpCode = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
