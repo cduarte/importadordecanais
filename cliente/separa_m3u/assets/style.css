@@ -281,6 +281,10 @@ button:disabled {
     background: rgba(15, 23, 42, 0.55);
 }
 
+.card--results .results {
+    margin-top: 0;
+}
+
 .results h2 {
     margin-top: 0;
 }
