@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../includes/constants.php';
+
 $error = null;
 $results = null;
 $activeMode = 'file';
@@ -292,8 +294,8 @@ function publicPath(string $absolutePath): string
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dividir Playlist</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css?3" rel="stylesheet">
-    <link rel="stylesheet" href="assets/style.css?3">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css?<?= ASSET_VERSION ?>" rel="stylesheet">
+    <link rel="stylesheet" href="assets/style.css?<?= ASSET_VERSION ?>">
 </head>
 <body>
 <?php include __DIR__ . '/../includes/navigation_menu.php'; ?>
@@ -406,7 +408,7 @@ function publicPath(string $absolutePath): string
         </div>
     </section>
 </div>
-<script src="assets/app.js?3"></script>
+<script src="assets/app.js?<?= ASSET_VERSION ?>"></script>
 <script>
     (function () {
         const navToggle = document.querySelector('.nav-toggle');
