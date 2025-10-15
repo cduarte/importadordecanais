@@ -378,7 +378,7 @@ function publicPath(string $absolutePath): string
                     <div class="split-success">
                         <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
                         <div>
-                            <strong>Listas geradas com sucesso!</strong>
+                            <strong>Arquivos geradas com sucesso!</strong>
                             <p>Faça o download dos arquivos abaixo e gere novas separações quando quiser.</p>
                         </div>
                     </div>
