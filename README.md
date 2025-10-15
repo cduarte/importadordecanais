@@ -98,9 +98,14 @@ https://45.67.136.10/~joaopedro/process_filmes.php
 
    ```
    IMPORTADOR_API_BASE_URL=https://45.67.136.10/~joaopedro/
+   # IMPORTADOR_API_INSECURE_SSL=true   # opcional
    ```
 
    > ⚠️ Importante: sempre terminar com `/` no final da URL.
+
+   Caso precise contactar um servidor que apresente certificado HTTPS incompatível com o IP (por exemplo, quando o host possui
+   certificado emitido apenas para um domínio), defina `IMPORTADOR_API_INSECURE_SSL=true` para desabilitar a validação de SSL do
+   proxy. Utilize essa opção apenas quando tiver certeza da procedência do servidor remoto.
 
 2. **Endpoints disponíveis**
 

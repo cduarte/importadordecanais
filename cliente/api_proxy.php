@@ -110,6 +110,19 @@ curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
 curl_setopt($curl, CURLOPT_TIMEOUT, 600);
 curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 30);
 
+$disableSslVerify = getenv('IMPORTADOR_API_INSECURE_SSL') ?: ($_ENV['IMPORTADOR_API_INSECURE_SSL'] ?? null);
+if (is_string($disableSslVerify)) {
+    $normalized = strtolower(trim($disableSslVerify));
+    $disableSslVerify = in_array($normalized, ['1', 'true', 'on', 'yes'], true);
+} else {
+    $disableSslVerify = (bool) $disableSslVerify;
+}
+
+if ($disableSslVerify) {
+    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 0);
+}
+
 $headers = ['User-Agent: ImportadorClienteProxy/1.0'];
 if (!empty($_SERVER['HTTP_ACCEPT'])) {
     $headers[] = 'Accept: ' . $_SERVER['HTTP_ACCEPT'];
