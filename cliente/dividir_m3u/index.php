@@ -7,15 +7,22 @@ $activeMode = 'file';
 
 $buildLocalUrl = static function (string $script, array $params = []) {
     $scriptPath = $_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '';
-    $directory = str_replace('\\\\', '/', dirname($scriptPath));
+    $scriptPath = str_replace('\\\\', '/', $scriptPath);
 
-    if ($directory === '/' || $directory === '\\' || $directory === '.') {
-        $directory = '';
-    } else {
-        $directory = rtrim($directory, '/');
+    $scriptDirectory = str_replace('\\\\', '/', dirname($scriptPath));
+    $baseDirectory = $scriptDirectory;
+
+    if ($scriptPath !== '' && substr($scriptPath, -10) === '/index.php') {
+        $baseDirectory = str_replace('\\\\', '/', dirname($scriptDirectory));
     }
 
-    $url = ($directory === '' ? '' : $directory) . '/' . ltrim($script, '/');
+    if ($baseDirectory === '/' || $baseDirectory === '\\' || $baseDirectory === '.') {
+        $baseDirectory = '';
+    } else {
+        $baseDirectory = rtrim($baseDirectory, '/');
+    }
+
+    $url = ($baseDirectory === '' ? '' : $baseDirectory) . '/' . ltrim($script, '/');
 
     if (!empty($params)) {
         $queryString = http_build_query($params);
