@@ -496,7 +496,10 @@
     }
 
     function updateCounts(groups) {
-        groupsCountLabel.textContent = String(groups.length);
+        const availableCount = groups.reduce((count, group) => (
+            state.selectedGroups.has(group.name) ? count : count + 1
+        ), 0);
+        groupsCountLabel.textContent = String(availableCount);
         selectedCountLabel.textContent = String(state.selectedGroups.size);
         btnExportSelection.textContent = state.selectedGroups.size
             ? `Exportar seleção (${state.selectedGroups.size})`
@@ -703,13 +706,17 @@
     }
 
     function renderGroups(groups) {
-        const filtered = groups.filter((group) => {
+        const available = groups.filter((group) => !state.selectedGroups.has(group.name));
+        const filtered = available.filter((group) => {
             if (!state.search) return true;
             return group.name.toLowerCase().includes(state.search.toLowerCase());
         });
 
         if (!filtered.length) {
-            groupsList.innerHTML = '<p class="empty-state">Nenhum grupo encontrado para este filtro.</p>';
+            const message = available.length
+                ? 'Nenhum grupo encontrado para este filtro.'
+                : 'Todos os grupos foram selecionados.';
+            groupsList.innerHTML = `<p class="empty-state">${message}</p>`;
             renderPaginationControls(groupsPagination, { currentPage: 1, totalPages: 0, totalItems: 0 });
             return;
         }
@@ -718,11 +725,8 @@
         const items = pagination.items
             .map((group) => {
                 const isActive = state.activeGroup === group.name;
-                const isSelected = state.selectedGroups.has(group.name);
-                const buttonLabel = isSelected ? 'Remover' : 'Adicionar';
-                const buttonClass = isSelected ? 'icon-button danger' : 'icon-button';
                 return `
-                    <article class="group-card${isActive ? ' active' : ''}${isSelected ? ' is-selected' : ''}" data-group="${escapeHtml(group.name)}">
+                    <article class="group-card${isActive ? ' active' : ''}" data-group="${escapeHtml(group.name)}">
                         <div class="group-info">
                             <div class="group-logo">${createGroupLogoMarkup(group)}</div>
                             <div class="group-meta">
@@ -731,7 +735,7 @@
                             </div>
                         </div>
                         <div class="group-actions">
-                            <button class="${buttonClass}" type="button" data-role="toggle-selection" data-group="${escapeHtml(group.name)}">${buttonLabel}</button>
+                            <button class="icon-button" type="button" data-role="toggle-selection" data-group="${escapeHtml(group.name)}">Adicionar</button>
                         </div>
                     </article>
                 `;
