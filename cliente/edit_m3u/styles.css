@@ -574,22 +574,17 @@ body {
 
 .board-body {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    min-height: 0;
+}
+
+.board-body .list-content {
     display: grid;
     gap: 0.9rem;
-    grid-auto-rows: minmax(0, auto);
-    max-height: 380px;
-    overflow-y: auto;
-    padding-right: 0.35rem;
     align-content: flex-start;
-}
-
-.board-body::-webkit-scrollbar {
-    width: 6px;
-}
-
-.board-body::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.3);
-    border-radius: 999px;
+    grid-auto-rows: minmax(0, auto);
 }
 
 .empty-state {
@@ -599,6 +594,66 @@ body {
     background: rgba(15, 23, 42, 0.45);
     border-radius: var(--radius-md);
     border: 1px dashed rgba(148, 163, 184, 0.2);
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.pagination-button {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.65);
+    color: var(--text);
+    display: grid;
+    place-items: center;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition), color var(--transition), box-shadow var(--transition);
+}
+
+.pagination-button:hover:not(:disabled),
+.pagination-button:focus-visible:not(:disabled) {
+    border-color: rgba(59, 130, 246, 0.55);
+    color: rgba(226, 232, 240, 0.95);
+    background: rgba(30, 41, 59, 0.85);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.pagination-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.pagination-info {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    padding: 0 0.75rem;
+    white-space: nowrap;
+}
+
+.pagination-compact {
+    gap: 0.35rem;
+}
+
+.pagination-compact .pagination-button {
+    width: 32px;
+    height: 32px;
+    font-size: 0.85rem;
+}
+
+.pagination-compact .pagination-info {
+    font-size: 0.75rem;
+    padding: 0 0.5rem;
 }
 
 .group-card {
@@ -949,21 +1004,15 @@ body {
     padding: 0.2rem 0.6rem;
 }
 
+.dual-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
 .dual-list {
     display: grid;
     gap: 0.75rem;
-    max-height: 340px;
-    overflow-y: auto;
-    padding-right: 0.35rem;
-}
-
-.dual-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.dual-list::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.3);
-    border-radius: 999px;
 }
 
 .dual-item {
@@ -1053,9 +1102,6 @@ body {
         padding: 1.75rem 1.5rem 3rem;
     }
 
-    .board-body {
-        max-height: min(320px, 45vh);
-    }
 }
 
 @media (max-width: 640px) {
@@ -1071,10 +1117,6 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .board-body {
-        max-height: none;
-    }
-
     .topbar {
         padding: 1.5rem 1.25rem 1rem;
     }
@@ -1086,10 +1128,6 @@ body {
 
     .dual-lists {
         grid-template-columns: 1fr;
-    }
-
-    .dual-list {
-        max-height: 260px;
     }
 }
 

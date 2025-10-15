@@ -135,8 +135,11 @@ $currentNavKey = 'edit_m3u';
                                 <input type="search" id="groupSearch" placeholder="Buscar grupos">
                             </div>
                         </header>
-                        <div class="board-body" id="groupsList">
-                            <p class="empty-state">Nenhum arquivo importado ainda.</p>
+                        <div class="board-body">
+                            <div class="list-content" id="groupsList">
+                                <p class="empty-state">Nenhum arquivo importado ainda.</p>
+                            </div>
+                            <div class="pagination" id="groupsPagination" hidden></div>
                         </div>
                     </article>
 
@@ -148,8 +151,11 @@ $currentNavKey = 'edit_m3u';
                             </div>
                             <button id="btnExportSelection" class="primary-button" disabled>Exportar seleção</button>
                         </header>
-                        <div class="board-body" id="selectedGroupsList">
-                            <p class="empty-state">Escolha grupos à esquerda para incluí-los aqui.</p>
+                        <div class="board-body">
+                            <div class="list-content" id="selectedGroupsList">
+                                <p class="empty-state">Escolha grupos à esquerda para incluí-los aqui.</p>
+                            </div>
+                            <div class="pagination" id="selectedPagination" hidden></div>
                         </div>
                     </article>
                 </section>
@@ -201,14 +207,20 @@ http://exemplo.com/stream"></textarea>
             <div class="dual-lists">
                 <section class="dual-column">
                     <h3>Canais disponíveis <span id="editAvailableCount">0</span></h3>
-                    <div class="dual-list" id="editAvailableList">
-                        <p class="empty-state small">Nenhum canal disponível para este grupo.</p>
+                    <div class="dual-list-container">
+                        <div class="dual-list" id="editAvailableList">
+                            <p class="empty-state small">Nenhum canal disponível para este grupo.</p>
+                        </div>
+                        <div class="pagination pagination-compact" id="editAvailablePagination" hidden></div>
                     </div>
                 </section>
                 <section class="dual-column">
                     <h3>Canais selecionados <span id="editSelectedCount">0</span></h3>
-                    <div class="dual-list" id="editSelectedList">
-                        <p class="empty-state small">Nenhum canal selecionado para exportação.</p>
+                    <div class="dual-list-container">
+                        <div class="dual-list" id="editSelectedList">
+                            <p class="empty-state small">Nenhum canal selecionado para exportação.</p>
+                        </div>
+                        <div class="pagination pagination-compact" id="editSelectedPagination" hidden></div>
                     </div>
                 </section>
             </div>
