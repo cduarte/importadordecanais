@@ -1,13 +1,37 @@
 <?php
+$documentRoot = isset($_SERVER['DOCUMENT_ROOT'])
+    ? rtrim(str_replace('\\', '/', (string) $_SERVER['DOCUMENT_ROOT']), '/')
+    : '';
+
+$currentDir = str_replace('\\', '/', __DIR__);
+$assetBasePath = '';
+
+if ($documentRoot !== '' && strpos($currentDir, $documentRoot) === 0) {
+    $assetBasePath = substr($currentDir, strlen($documentRoot));
+}
+
+$assetBasePath = '/' . ltrim($assetBasePath, '/');
+if ($assetBasePath === '/') {
+    $assetBasePath = '';
+}
+
+if ($assetBasePath === '') {
+    $scriptName = isset($_SERVER['SCRIPT_NAME']) ? str_replace('\\', '/', (string) $_SERVER['SCRIPT_NAME']) : '';
+    $scriptDir = str_replace('\\', '/', dirname($scriptName));
+    $assetBasePath = $scriptDir === '/' ? '' : '/' . ltrim($scriptDir, '/');
+}
+
+$baseHref = $assetBasePath === '' ? '/' : rtrim($assetBasePath, '/') . '/';
 ?><!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Studio M3U - Editor de playlists IPTV</title>
+    <base href="<?= htmlspecialchars($baseHref, ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body data-base-path="<?= htmlspecialchars($assetBasePath, ENT_QUOTES, 'UTF-8'); ?>">
     <div class="app-shell">
         <section class="landing" id="landingScreen">
             <header class="landing-topbar">

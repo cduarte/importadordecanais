@@ -10,6 +10,22 @@
         groupExclusions: new Map()
     };
 
+    const baseElement = document.querySelector('base[href]');
+    const appBaseUrl = baseElement ? baseElement.href : window.location.href;
+
+    function resolveAppUrl(path) {
+        try {
+            return new URL(path, appBaseUrl).toString();
+        } catch (error) {
+            const fallbackBase = (document.body?.dataset.basePath ?? '').replace(/\/+$/, '');
+            const normalized = path.startsWith('/') ? path : '/' + path;
+            if (fallbackBase) {
+                return fallbackBase + normalized;
+            }
+            return normalized;
+        }
+    }
+
     const landingScreen = document.getElementById('landingScreen');
     const editorShell = document.getElementById('editorShell');
     const landingTabs = Array.from(document.querySelectorAll('[data-landing-tab]'));
@@ -129,7 +145,7 @@
             formData.append('playlist_url', url);
         }
 
-        const response = await fetch('upload.php', {
+        const response = await fetch(resolveAppUrl('upload.php'), {
             method: 'POST',
             body: formData,
         });
