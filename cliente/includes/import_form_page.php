@@ -553,7 +553,7 @@ HTML
             display: inline-flex;
             align-items: center;
             padding: 0.2rem 0.75rem;
-            border-radius: 999px;
+            border-radius: 10px;
             background: linear-gradient(135deg, rgba(59, 130, 246, 0.24), rgba(30, 64, 175, 0.18));
             border: 1px solid rgba(59, 130, 246, 0.4);
             color: var(--primary-light);
