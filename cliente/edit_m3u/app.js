@@ -40,6 +40,7 @@
     const groupSearch = document.getElementById('groupSearch');
     const groupsList = document.getElementById('groupsList');
     const selectedGroupsList = document.getElementById('selectedGroupsList');
+    const boardGrid = document.getElementById('boardGrid');
     const groupsPagination = document.getElementById('groupsPagination');
     const selectedPagination = document.getElementById('selectedPagination');
     const btnDownload = document.getElementById('btnDownload');
@@ -49,9 +50,9 @@
     const exportPreview = document.getElementById('exportPreview');
     const groupsCountLabel = document.getElementById('groupsCount');
     const selectedCountLabel = document.getElementById('selectedCount');
-    const editGroupModal = document.getElementById('editGroupModal');
-    const editModalTitle = document.getElementById('editModalTitle');
-    const editModalSubtitle = document.getElementById('editModalSubtitle');
+    const editPanel = document.getElementById('editPanel');
+    const editModalTitle = document.getElementById('editPanelTitle');
+    const editModalSubtitle = document.getElementById('editPanelSubtitle');
     const editAvailableList = document.getElementById('editAvailableList');
     const editSelectedList = document.getElementById('editSelectedList');
     const editAvailablePagination = document.getElementById('editAvailablePagination');
@@ -479,8 +480,8 @@
         state.groupExclusions.clear();
         state.activeGroup = null;
         resetPagination();
-        if (!editGroupModal.hidden) {
-            closeEditModal();
+        if (isEditPanelOpen()) {
+            closeEditPanel();
         }
         render();
     }
@@ -814,13 +815,28 @@
         updateExportPreview();
         updateActionsState();
         if (editingGroup && !state.selectedGroups.has(editingGroup)) {
-            closeEditModal();
-        } else if (editingGroup && !editGroupModal.hidden) {
-            renderEditModal();
+            closeEditPanel();
+        } else if (editingGroup && isEditPanelOpen()) {
+            renderEditPanel();
         }
     }
 
-    function renderEditModal() {
+    function isEditPanelOpen() {
+        return Boolean(editPanel && !editPanel.classList.contains('hidden'));
+    }
+
+    function toggleEditPanel(isVisible) {
+        if (!editPanel) {
+            return;
+        }
+
+        editPanel.classList.toggle('hidden', !isVisible);
+        if (boardGrid) {
+            boardGrid.classList.toggle('hidden', isVisible);
+        }
+    }
+
+    function renderEditPanel() {
         if (!editingGroup) {
             return;
         }
@@ -856,16 +872,19 @@
         renderPaginationControls(editAvailablePagination, availablePagination);
     }
 
-    function openEditModal(groupName) {
+    function openEditPanel(groupName) {
         editingGroup = groupName;
-        editGroupModal.hidden = false;
         resetPagination(['editAvailable', 'editSelected']);
-        renderEditModal();
+        toggleEditPanel(true);
+        renderEditPanel();
+        requestAnimationFrame(() => {
+            editPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
     }
 
-    function closeEditModal() {
+    function closeEditPanel() {
         editingGroup = null;
-        editGroupModal.hidden = true;
+        toggleEditPanel(false);
     }
 
     function handleEditListAction(event) {
@@ -1043,8 +1062,8 @@
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
-            if (!editGroupModal.hidden) {
-                closeEditModal();
+            if (isEditPanelOpen()) {
+                closeEditPanel();
                 return;
             }
             if (!pasteModal.hidden) {
@@ -1077,13 +1096,7 @@
     });
 
     btnCloseEdit.addEventListener('click', () => {
-        closeEditModal();
-    });
-
-    editGroupModal.addEventListener('click', (event) => {
-        if (event.target === editGroupModal) {
-            closeEditModal();
-        }
+        closeEditPanel();
     });
 
     editSelectedList.addEventListener('click', handleEditListAction);
@@ -1244,7 +1257,7 @@
             if (!groupName) return;
             state.activeGroup = groupName;
             render();
-            openEditModal(groupName);
+            openEditPanel(groupName);
             return;
         }
 
