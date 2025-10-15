@@ -212,6 +212,20 @@ body {
     flex: 1;
     display: grid;
     gap: 0.9rem;
+    grid-auto-rows: minmax(0, auto);
+    max-height: 380px;
+    overflow-y: auto;
+    padding-right: 0.35rem;
+    align-content: flex-start;
+}
+
+.board-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.board-body::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 999px;
 }
 
 .empty-state {
@@ -230,7 +244,7 @@ body {
     border: 1px solid transparent;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 1rem;
     transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
     cursor: pointer;
@@ -260,6 +274,37 @@ body {
     color: var(--text-muted);
 }
 
+.group-info {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.group-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.group-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.group-logo span {
+    font-weight: 600;
+    font-size: 1rem;
+    color: rgba(226, 232, 240, 0.75);
+}
+
 .group-meta {
     display: flex;
     flex-direction: column;
@@ -270,6 +315,8 @@ body {
     display: flex;
     align-items: center;
     gap: 0.4rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .icon-button {
@@ -286,6 +333,15 @@ body {
 .icon-button:hover {
     background: rgba(59, 130, 246, 0.35);
     transform: translateY(-1px);
+}
+
+.icon-button.neutral {
+    background: rgba(148, 163, 184, 0.16);
+    color: var(--text);
+}
+
+.icon-button.neutral:hover {
+    background: rgba(148, 163, 184, 0.28);
 }
 
 .icon-button.danger {
@@ -575,6 +631,127 @@ body {
     gap: 0.75rem;
 }
 
+.modal-card.modal-large {
+    width: min(920px, 100%);
+}
+
+.dual-lists {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.dual-column {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.dual-column h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    color: var(--text);
+}
+
+.dual-column h3 span {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    background: rgba(148, 163, 184, 0.14);
+    border-radius: 999px;
+    padding: 0.2rem 0.6rem;
+}
+
+.dual-list {
+    display: grid;
+    gap: 0.75rem;
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 0.35rem;
+}
+
+.dual-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.dual-list::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 999px;
+}
+
+.dual-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radius-md);
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.dual-item .dual-info {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.dual-info strong {
+    display: block;
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dual-info small {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.channel-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(15, 23, 42, 0.45);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.channel-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.channel-thumb span {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: rgba(226, 232, 240, 0.75);
+}
+
+.dual-item .icon-button {
+    flex-shrink: 0;
+}
+
+.empty-state.small {
+    padding: 1.5rem 1rem;
+    font-size: 0.95rem;
+}
+
 @media (max-width: 960px) {
     .topbar {
         flex-direction: column;
@@ -596,6 +773,10 @@ body {
         min-width: auto;
     }
 
+    .board-body {
+        max-height: min(320px, 45vh);
+    }
+
     .channels-actions {
         flex-wrap: wrap;
         justify-content: flex-end;
@@ -615,11 +796,23 @@ body {
         grid-template-columns: 1fr;
     }
 
+    .board-body {
+        max-height: none;
+    }
+
     .channels-table {
         overflow-x: auto;
     }
 
     .topbar {
         padding: 1.5rem 1.25rem 1rem;
+    }
+
+    .dual-lists {
+        grid-template-columns: 1fr;
+    }
+
+    .dual-list {
+        max-height: 260px;
     }
 }
