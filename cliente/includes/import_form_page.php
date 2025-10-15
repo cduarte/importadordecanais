@@ -294,38 +294,46 @@ HTML
 
         .nav-container {
             position: relative;
-            margin: 0 auto 1.5rem;
-        }
-
-        .nav-bar {
+            width: min(820px, 94vw);
+            margin: 1.25rem auto 1.75rem;
+            padding: 0.35rem 0.5rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 0.75rem;
-            background: rgba(20, 30, 49, 0.85);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: var(--radius-md);
-            padding: 0.5rem 0.75rem;
-            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.25);
-            backdrop-filter: blur(8px);
+            background: rgba(14, 22, 38, 0.82);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 999px;
+            box-shadow: 0 12px 28px rgba(8, 13, 26, 0.45);
+            backdrop-filter: blur(12px);
+            z-index: 1000;
+        }
+
+        .nav-bar {
+            flex: 1 1 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
         }
 
         .nav-title {
-            font-size: 0.95rem;
+            font-size: 0.92rem;
             font-weight: 600;
             color: var(--text-primary);
             letter-spacing: 0.01em;
+            white-space: nowrap;
         }
 
         .nav-toggle {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 2.25rem;
-            height: 2.25rem;
+            width: 2.1rem;
+            height: 2.1rem;
             border-radius: 999px;
             border: none;
-            background: rgba(59, 130, 246, 0.12);
+            background: rgba(59, 130, 246, 0.16);
             color: var(--text-primary);
             cursor: pointer;
             transition: background 0.2s ease, color 0.2s ease;
@@ -333,14 +341,14 @@ HTML
 
         .nav-toggle:hover,
         .nav-toggle:focus-visible {
-            background: rgba(59, 130, 246, 0.2);
+            background: rgba(59, 130, 246, 0.26);
             color: var(--primary-color);
             outline: none;
         }
 
         .nav-toggle .icon {
             pointer-events: none;
-            font-size: 1.25rem;
+            font-size: 1.2rem;
         }
 
         .nav-toggle .icon-close {
@@ -358,23 +366,23 @@ HTML
         .navigation {
             display: flex;
             flex-direction: column;
-            gap: 0.65rem;
+            gap: 0.55rem;
         }
 
         .nav-drawer {
             position: fixed;
             inset: 0 auto 0 0;
             height: 100vh;
-            width: min(260px, 78%);
-            padding: 1.25rem 1rem;
-            background: rgba(13, 22, 38, 0.95);
-            border-right: 1px solid rgba(148, 163, 184, 0.2);
-            box-shadow: 0 20px 45px rgba(8, 11, 23, 0.45);
+            width: min(260px, 82vw);
+            padding: 1.25rem;
+            background: rgba(13, 22, 38, 0.96);
+            border-right: 1px solid rgba(148, 163, 184, 0.22);
+            box-shadow: 0 24px 48px rgba(8, 13, 26, 0.45);
             transform: translateX(-100%);
             transition: transform 0.3s ease;
             z-index: 1001;
             overflow-y: auto;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
         }
 
         .nav-drawer.open {
@@ -384,34 +392,34 @@ HTML
         .nav-link {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1rem;
-            background: rgba(21, 32, 52, 0.65);
-            border: 1px solid rgba(148, 163, 184, 0.2);
+            gap: 0.6rem;
+            padding: 0.7rem 1rem;
+            background: rgba(21, 32, 52, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.24);
             border-radius: var(--radius-md);
             color: var(--text-secondary);
             text-decoration: none;
             font-weight: 500;
             transition: all 0.2s ease;
-            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25);
+            box-shadow: 0 12px 26px rgba(8, 13, 26, 0.32);
             width: 100%;
         }
 
         .nav-link i {
-            font-size: 1rem;
+            font-size: 0.95rem;
         }
 
         .nav-link:hover {
-            color: var(--primary-hover);
-            background: rgba(37, 99, 235, 0.12);
-            border-color: rgba(59, 130, 246, 0.4);
+            color: var(--text-primary);
+            background: rgba(37, 99, 235, 0.14);
+            border-color: rgba(59, 130, 246, 0.38);
         }
 
         .nav-link.active {
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9));
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.88), rgba(37, 99, 235, 0.88));
             color: #fff;
-            border-color: transparent;
-            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.35);
+            border-color: rgba(59, 130, 246, 0.65);
+            box-shadow: 0 16px 32px rgba(10, 16, 32, 0.35);
         }
 
         .nav-overlay {
@@ -912,16 +920,22 @@ HTML
         }
 
         @media (min-width: 768px) {
-            .nav-bar,
-            .nav-overlay {
+            .nav-container {
+                width: min(860px, 92vw);
+                padding: 0.45rem 0.75rem;
+                gap: 1rem;
+            }
+
+            .nav-bar {
+                flex: 0 0 auto;
+            }
+
+            .nav-toggle {
                 display: none;
             }
 
-            .navigation {
-                flex-direction: row;
-                justify-content: center;
-                gap: 1rem;
-                flex-wrap: wrap;
+            .nav-overlay {
+                display: none !important;
             }
 
             .nav-drawer {
@@ -929,20 +943,42 @@ HTML
                 transform: none;
                 height: auto;
                 width: auto;
-                padding: 0.75rem;
-                border-radius: var(--radius-lg);
-                border: 1px solid var(--border-color);
-                background: var(--bg-secondary);
-                box-shadow: var(--shadow-md);
+                padding: 0;
+                background: transparent;
+                border: none;
+                box-shadow: none;
+                overflow: visible;
+            }
+
+            .navigation {
+                flex-direction: row;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 0.45rem;
+                flex-wrap: nowrap;
             }
 
             .nav-link {
                 width: auto;
-                padding: 0.5rem 1.25rem;
+                padding: 0.45rem 0.85rem;
+                border-radius: 999px;
+                background: transparent;
+                border: 1px solid transparent;
+                box-shadow: none;
+                color: var(--text-secondary);
             }
 
-            .nav-toggle {
-                display: none;
+            .nav-link:hover {
+                color: var(--text-primary);
+                background: rgba(59, 130, 246, 0.18);
+                border-color: rgba(59, 130, 246, 0.4);
+            }
+
+            .nav-link.active {
+                color: #fff;
+                background: rgba(59, 130, 246, 0.28);
+                border-color: rgba(59, 130, 246, 0.55);
+                box-shadow: none;
             }
 
             .form-footer {
