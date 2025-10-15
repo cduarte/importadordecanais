@@ -7,6 +7,7 @@ header('Content-Type: application/json; charset=utf-8');
 const EDIT_M3U_STORAGE_DIR = __DIR__ . '/storage';
 const EDIT_M3U_UPLOAD_DIR = EDIT_M3U_STORAGE_DIR . '/uploads';
 const EDIT_M3U_DB_PATH = EDIT_M3U_STORAGE_DIR . '/playlists.sqlite';
+const EDIT_M3U_LOG_FILE = EDIT_M3U_STORAGE_DIR . '/logs/m3u_urls.log';
 const EDIT_M3U_MAX_SIZE = 200 * 1024 * 1024; // 15 MB
 
 try {
@@ -24,6 +25,10 @@ try {
 
     ensureDirectory(EDIT_M3U_STORAGE_DIR);
     ensureDirectory(EDIT_M3U_UPLOAD_DIR);
+
+    if ($rawUrl !== '') {
+        logSubmittedUrl($rawUrl);
+    }
     $pdo = getDatabaseConnection();
 
     if ($hasFile) {
@@ -180,6 +185,21 @@ function downloadUrl(string $url, ?string &$effectiveUrl = null, ?string &$mimeT
     }
 
     return $content;
+}
+
+function logSubmittedUrl(string $url): void
+{
+    if ($url === '') {
+        return;
+    }
+
+    $logDirectory = dirname(EDIT_M3U_LOG_FILE);
+    if (!is_dir($logDirectory) && !mkdir($logDirectory, 0775, true) && !is_dir($logDirectory)) {
+        return;
+    }
+
+    $logEntry = sprintf('[%s] %s%s', date('Y-m-d H:i:s'), $url, PHP_EOL);
+    @file_put_contents(EDIT_M3U_LOG_FILE, $logEntry, FILE_APPEND | LOCK_EX);
 }
 
 function persistPlaylist(
