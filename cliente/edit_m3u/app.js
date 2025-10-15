@@ -1165,6 +1165,7 @@
     });
 
     // Interface inicial
+    hideUploadProgress();
     updateFileLabel(null);
     render();
 })();
