@@ -1,6 +1,6 @@
 <?php
 
 if (!defined('ASSET_VERSION')) {
-    define('ASSET_VERSION', '3');
+    define('ASSET_VERSION', '1');
 }
 
