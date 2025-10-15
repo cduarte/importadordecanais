@@ -356,6 +356,14 @@ a:hover {
     .split-grid {
         grid-template-columns: 1.05fr 1fr;
     }
+
+    .split-grid.split-grid--results {
+        grid-template-columns: 1fr;
+    }
+}
+
+.split-card--results {
+    width: 100%;
 }
 
 .split-intro {

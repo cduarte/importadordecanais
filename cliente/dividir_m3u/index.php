@@ -286,37 +286,29 @@ function publicPath(string $absolutePath): string
 <?php include __DIR__ . '/../includes/navigation_menu.php'; ?>
 <div class="app-shell">
     <section class="split-landing">
-        <div class="split-grid">
-            <div class="split-intro">
-                <p class="split-subtitle">Organize suas listas</p>
-                <h1>Divida sua playlist M3U por categorias</h1>
-                <p class="split-description">Transforme uma playlist única em coleções separadas de canais, filmes e séries em segundos.</p>
-                <ul class="split-highlights">
-                    <li>
-                        <span class="split-highlight-icon"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
-                        Processamento automático com identificação das categorias existentes.
-                    </li>
-                    <li>
-                        <span class="split-highlight-icon"><i class="fa-solid fa-folder-tree" aria-hidden="true"></i></span>
-                        Cria a estrutura de pastas pronta para importar no seu painel IPTV.
-                    </li>
-                    <li>
-                        <span class="split-highlight-icon"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i></span>
-                        Baixe todas as categorias em ZIP ou escolha apenas as que precisar.
-                    </li>
-                </ul>
-                <?php if ($results): ?>
-                    <div class="split-success">
-                        <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-                        <div>
-                            <strong>Listas geradas com sucesso!</strong>
-                            <p>Faça o download dos arquivos ao lado e gere novas separações quando quiser.</p>
-                        </div>
-                    </div>
-                <?php else: ?>
+        <div class="split-grid<?php echo $results ? ' split-grid--results' : ''; ?>">
+            <?php if (!$results): ?>
+                <div class="split-intro">
+                    <p class="split-subtitle">Organize suas listas</p>
+                    <h1>Divida sua playlist M3U por categorias</h1>
+                    <p class="split-description">Transforme uma playlist única em coleções separadas de canais, filmes e séries em segundos.</p>
+                    <ul class="split-highlights">
+                        <li>
+                            <span class="split-highlight-icon"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
+                            Processamento automático com identificação das categorias existentes.
+                        </li>
+                        <li>
+                            <span class="split-highlight-icon"><i class="fa-solid fa-folder-tree" aria-hidden="true"></i></span>
+                            Cria a estrutura de pastas pronta para importar no seu painel IPTV.
+                        </li>
+                        <li>
+                            <span class="split-highlight-icon"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i></span>
+                            Baixe todas as categorias em ZIP ou escolha apenas as que precisar.
+                        </li>
+                    </ul>
                     <p class="split-footnote">Suporta arquivos .m3u, .m3u8 e .txt com codificação UTF-8.</p>
-                <?php endif; ?>
-            </div>
+                </div>
+            <?php endif; ?>
             <article class="split-card<?php echo $results ? ' split-card--results' : ''; ?>">
                 <?php if ($error): ?>
                     <div class="alert error">
@@ -368,6 +360,13 @@ function publicPath(string $absolutePath): string
                         <button type="submit">Processar lista</button>
                     </form>
                 <?php else: ?>
+                    <div class="split-success">
+                        <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+                        <div>
+                            <strong>Listas geradas com sucesso!</strong>
+                            <p>Faça o download dos arquivos abaixo e gere novas separações quando quiser.</p>
+                        </div>
+                    </div>
                     <h2 class="split-card__title">Arquivos gerados</h2>
                     <div class="results">
                         <?php if ($results['zip']): ?>
