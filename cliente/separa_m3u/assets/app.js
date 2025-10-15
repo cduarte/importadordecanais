@@ -25,6 +25,22 @@ document.addEventListener('DOMContentLoaded', () => {
         progress.style.display = show ? 'block' : 'none';
     };
 
+    const triggerAutomaticSubmission = () => {
+        if (!form || (submitButton && submitButton.disabled)) {
+            return;
+        }
+
+        if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+            return;
+        }
+
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit(submitButton ?? undefined);
+        } else {
+            form.submit();
+        }
+    };
+
     const updateDropzoneCopy = () => {
         if (!dropzoneTitle || !dropzoneSubtitle) {
             return;
@@ -128,7 +144,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (fileInput) {
-        fileInput.addEventListener('change', updateDropzoneCopy);
+        fileInput.addEventListener('change', () => {
+            updateDropzoneCopy();
+
+            if (currentMode === 'file' && fileInput.files?.length) {
+                triggerAutomaticSubmission();
+            }
+        });
     }
 
     modeButtons.forEach((button) => {
