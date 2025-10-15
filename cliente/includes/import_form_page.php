@@ -1094,7 +1094,6 @@ HTML
                     <i class="fas fa-sliders-h"></i>
                 </div>
                 <div class="card-header-text">
-                    <span class="card-chip"><i class="fas fa-bolt"></i> Configuração Rápida de Importação</span>
                     <h2>Prepare a importação de <?= $resourceCapitalized; ?></h2>
                     <p>Informe a fonte M3U e os dados de conexão para importar <?= $resourcePluralLower; ?> com segurança no <strong>XUI.ONE</strong>.</p>
                 </div>
