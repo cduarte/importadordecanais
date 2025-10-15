@@ -183,10 +183,11 @@ $currentNavKey = 'edit_m3u';
                         <p>Arraste grupos, ajuste a seleção e exporte apenas o que importa.</p>
                     </div>
                     <ol>
-                        <li><strong>Envie</strong> sua playlist pelo botão acima ou cole o conteúdo M3U.</li>
-                        <li><strong>Explore</strong> os grupos na coluna da esquerda e clique em <em>Adicionar</em> para movê-los para a seleção.</li>
-                        <li><strong>Pré-visualize</strong> os canais do grupo ativo e ajuste informações caso precise.</li>
-                        <li><strong>Exporte</strong> somente os grupos selecionados, baixando o arquivo ou copiando o texto.</li>
+                        <li><strong>Carregue</strong> sua playlist escolhendo um arquivo M3U ou colando o conteúdo bruto pelo botão <em>Importar</em>.</li>
+                        <li><strong>Organize</strong> os grupos arrastando-os ou usando os botões de ação para adicioná-los à lista da direita.</li>
+                        <li><strong>Refine</strong> cada grupo ativo conferindo a pré-visualização dos canais, renomeando ou removendo entradas indesejadas.</li>
+                        <li><strong>Verifique</strong> o painel de pré-visualização para garantir que apenas os grupos desejados permanecem selecionados.</li>
+                        <li><strong>Exporte</strong> a seleção final baixando o novo arquivo M3U ou copiando o texto gerado para reutilizar em outro serviço.</li>
                     </ol>
                 </section>
 
