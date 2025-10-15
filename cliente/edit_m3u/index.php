@@ -107,18 +107,6 @@ $currentNavKey = 'edit_m3u';
             </header>
 
             <main class="workspace">
-                <section class="card how-to">
-                    <div class="how-to-header">
-                        <h2>Como usar</h2>
-                        <p>Arraste grupos, ajuste a seleção e exporte apenas o que importa.</p>
-                    </div>
-                    <ol>
-                        <li><strong>Envie</strong> sua playlist pelo botão acima ou cole o conteúdo M3U.</li>
-                        <li><strong>Explore</strong> os grupos na coluna da esquerda e clique em <em>Adicionar</em> para movê-los para a seleção.</li>
-                        <li><strong>Pré-visualize</strong> os canais do grupo ativo e ajuste informações caso precise.</li>
-                        <li><strong>Exporte</strong> somente os grupos selecionados, baixando o arquivo ou copiando o texto.</li>
-                    </ol>
-                </section>
 
                 <section class="board-grid" id="boardGrid">
                     <article class="card board">
@@ -187,6 +175,19 @@ $currentNavKey = 'edit_m3u';
                             </div>
                         </section>
                     </div>
+                </section>
+
+                <section class="card how-to">
+                    <div class="how-to-header">
+                        <h2>Como usar</h2>
+                        <p>Arraste grupos, ajuste a seleção e exporte apenas o que importa.</p>
+                    </div>
+                    <ol>
+                        <li><strong>Envie</strong> sua playlist pelo botão acima ou cole o conteúdo M3U.</li>
+                        <li><strong>Explore</strong> os grupos na coluna da esquerda e clique em <em>Adicionar</em> para movê-los para a seleção.</li>
+                        <li><strong>Pré-visualize</strong> os canais do grupo ativo e ajuste informações caso precise.</li>
+                        <li><strong>Exporte</strong> somente os grupos selecionados, baixando o arquivo ou copiando o texto.</li>
+                    </ol>
                 </section>
 
                 <section class="card preview-panel">
