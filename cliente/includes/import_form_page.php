@@ -1361,7 +1361,7 @@ HTML
         </section>
     </div>
 
-    <script src="assets/importer.js"></script>
+    <script src="assets/importer.js?3"></script>
     <script>
         const ACTION_URL = <?= $actionUrlJson ?>;
         const STATUS_URL = <?= $statusUrlJson ?>;

@@ -44,7 +44,7 @@ $currentNavKey = 'edit_m3u';
     <title>Studio M3U - Editor de playlists IPTV</title>
     <meta name="edit-m3u-upload-endpoint" content="<?= htmlspecialchars($uploadEndpoint, ENT_QUOTES, 'UTF-8'); ?>">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?3">
 </head>
 <body>
     <?php include __DIR__ . '/../includes/navigation_menu.php'; ?>
@@ -220,7 +220,7 @@ http://exemplo.com/stream"></textarea>
         <span class="upload-progress-label" id="uploadProgressLabel">Enviando playlist...</span>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?3"></script>
     <script>
         (function () {
             const navToggle = document.querySelector('.nav-toggle');
