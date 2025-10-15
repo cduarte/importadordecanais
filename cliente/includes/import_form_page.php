@@ -1040,7 +1040,7 @@ HTML
 
             .nav-link {
                 padding: 0.65rem 1.3rem;
-                border-radius: 999px;
+                border-radius: 10px;
                 background: rgba(12, 20, 36, 0.58);
                 border-color: rgba(59, 130, 246, 0.3);
                 box-shadow: none;
