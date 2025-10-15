@@ -56,6 +56,16 @@ function extractM3uContents(): string
         throw new RuntimeException('Informe uma URL válida.');
     }
 
+    $urlParts = parse_url($url);
+    $scheme = strtolower((string)($urlParts['scheme'] ?? ''));
+    if (!in_array($scheme, ['http', 'https'], true)) {
+        throw new RuntimeException('Informe uma URL HTTP ou HTTPS.');
+    }
+
+    if (empty($urlParts['host'])) {
+        throw new RuntimeException('Informe uma URL completa com host válido.');
+    }
+
     $context = stream_context_create([
         'http' => [
             'timeout' => 15,
