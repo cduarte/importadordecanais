@@ -19,20 +19,19 @@ $uploadEndpoint = $scriptDir . '/upload.php';
         <section class="landing" id="landingScreen">
             <header class="landing-topbar">
                 <div class="landing-brand">M3U<span>EDIT</span></div>
-                <button class="lang-button" type="button">English</button>
             </header>
 
             <div class="landing-hero">
-                <p class="landing-subtitle">Your Channels, Your Choice</p>
-                <h1>Level Up Your IPTV Experience with Customized M3U Playlists</h1>
+                <p class="landing-subtitle">Seus canais, do seu jeito</p>
+                <h1>Eleve sua experiência IPTV com playlists M3U personalizadas</h1>
                 <p class="landing-description">
-                    Upload, filter, and export your personalized IPTV M3U/EPG playlists — no more clutter, just the channels you want!
+                    Envie, filtre e exporte suas playlists IPTV M3U/EPG personalizadas — sem bagunça, apenas os canais que você realmente quer!
                 </p>
             </div>
 
-            <div class="landing-selector" role="tablist" aria-label="Import options">
-                <button class="landing-tab active" type="button" data-landing-tab="file" aria-selected="true">BY FILE</button>
-                <button class="landing-tab" type="button" data-landing-tab="url" aria-selected="false">BY URL</button>
+            <div class="landing-selector" role="tablist" aria-label="Opções de importação">
+                <button class="landing-tab active" type="button" data-landing-tab="file" aria-selected="true">POR ARQUIVO</button>
+                <button class="landing-tab" type="button" data-landing-tab="url" aria-selected="false">POR URL</button>
             </div>
 
             <div class="landing-panels">
@@ -40,20 +39,20 @@ $uploadEndpoint = $scriptDir . '/upload.php';
                     <input type="file" id="landingFileInput" accept=".m3u,.m3u8,.txt" hidden>
                     <div class="drop-zone" id="landingDropZone" role="button" tabindex="0" aria-controls="landingFileInput">
                         <div class="drop-zone-inner">
-                            <button class="primary-button" type="button" id="landingChooseButton">Choose file</button>
-                            <p class="drop-hint">or drop your M3U here</p>
+                            <button class="primary-button" type="button" id="landingChooseButton">Escolher arquivo</button>
+                            <p class="drop-hint">ou solte seu M3U aqui</p>
                         </div>
                     </div>
-                    <p class="landing-footnote">Supported formats: .m3u, .m3u8, .txt (UTF-8)</p>
+                    <p class="landing-footnote">Formatos suportados: .m3u, .m3u8, .txt (UTF-8)</p>
                 </div>
 
                 <form class="landing-card hidden" id="landingUrlForm" data-landing-panel="url">
-                    <label for="landingUrlInput" class="landing-url-label">Paste the source URL</label>
+                    <label for="landingUrlInput" class="landing-url-label">Cole a URL de origem</label>
                     <div class="landing-url-field">
                         <input type="url" id="landingUrlInput" name="playlist_url" placeholder="https://yourprovider.com/path-to.m3u" required>
-                        <button class="primary-button" type="submit" id="landingDownloadButton">Download playlist</button>
+                        <button class="primary-button" type="submit" id="landingDownloadButton">Baixar playlist</button>
                     </div>
-                    <p class="landing-footnote">The system will fetch the file, store it, and keep a copy in your history.</p>
+                    <p class="landing-footnote">O sistema fará o download do arquivo, armazenará e manterá uma cópia no seu histórico.</p>
                 </form>
             </div>
 
@@ -81,7 +80,7 @@ $uploadEndpoint = $scriptDir . '/upload.php';
             <main class="workspace">
                 <section class="card how-to">
                     <div class="how-to-header">
-                        <h2>How To Use</h2>
+                        <h2>Como usar</h2>
                         <p>Arraste grupos, ajuste a seleção e exporte apenas o que importa.</p>
                     </div>
                     <ol>
