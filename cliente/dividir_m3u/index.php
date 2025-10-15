@@ -326,7 +326,7 @@ function publicPath(string $absolutePath): string
 
                 <?php if (!$results): ?>
                     <h2 class="split-card__title">Comece enviando sua playlist</h2>
-                    <p class="split-card__subtitle">Escolha enviar um arquivo M3U ou informe uma URL para que façamos o download automaticamente.</p>
+                    <p class="split-card__subtitle">Escolha enviar um arquivo M3U ou informe uma URL</p>
 
                     <form method="post" enctype="multipart/form-data" data-default-mode="<?php echo htmlspecialchars($activeMode, ENT_QUOTES, 'UTF-8'); ?>">
                         <div class="mode-switch" role="tablist" aria-label="Selecione a forma de envio">
