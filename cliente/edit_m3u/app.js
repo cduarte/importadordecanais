@@ -798,8 +798,12 @@
         const hasSelection = state.selectedGroups.size > 0;
         const canExportSelection = hasSelection && canExport;
 
-        btnDownload.disabled = !canExport;
-        btnExportSelection.disabled = !canExportSelection;
+        if (btnDownload) {
+            btnDownload.disabled = !canExport;
+        }
+        if (btnExportSelection) {
+            btnExportSelection.disabled = !canExportSelection;
+        }
     }
 
     function downloadPlaylist() {
@@ -1284,9 +1288,13 @@
         render();
     });
 
-    btnExportSelection.addEventListener('click', downloadPlaylist);
+    if (btnExportSelection) {
+        btnExportSelection.addEventListener('click', downloadPlaylist);
+    }
 
-    btnDownload.addEventListener('click', downloadPlaylist);
+    if (btnDownload) {
+        btnDownload.addEventListener('click', downloadPlaylist);
+    }
 
     // Interface inicial
     hideUploadProgress();
