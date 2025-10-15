@@ -10,6 +10,8 @@ require_once __DIR__ . '/constants.php';
  * @param array{
  *     action_endpoint?: string,
  *     status_endpoint?: string,
+ *     action_route?: string,
+ *     status_route?: string,
  *     current_nav_key?: string,
  *     resource?: array{
  *         singular?: string,
@@ -87,9 +89,20 @@ function renderImportFormPage(array $config): void
 
     $actionEndpoint = $config['action_endpoint'] ?? 'canais';
     $statusEndpoint = $config['status_endpoint'] ?? ($actionEndpoint . '_status');
+    $actionRoute = $config['action_route'] ?? null;
+    $statusRoute = $config['status_route'] ?? null;
 
-    $actionUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => $actionEndpoint]);
-    $statusUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => $statusEndpoint]);
+    if (is_string($actionRoute) && $actionRoute !== '') {
+        $actionUrl = $buildLocalUrl('index.php', ['action' => $actionRoute]);
+    } else {
+        $actionUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => $actionEndpoint]);
+    }
+
+    if (is_string($statusRoute) && $statusRoute !== '') {
+        $statusUrl = $buildLocalUrl('index.php', ['action' => $statusRoute]);
+    } else {
+        $statusUrl = $buildLocalUrl('api_proxy.php', ['endpoint' => $statusEndpoint]);
+    }
 
     $currentNavKey = $config['current_nav_key'] ?? $resource['plural'];
 

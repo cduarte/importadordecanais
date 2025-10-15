@@ -1,5 +1,23 @@
 <?php
 
+$importAction = 'filmes-bridge';
+$statusAction = 'filmes-status-bridge';
+$requestedAction = $_GET['action'] ?? '';
+
+if ($requestedAction === $importAction) {
+    $_GET['endpoint'] = 'filmes';
+    unset($_GET['action']);
+    require __DIR__ . '/api_proxy.php';
+    return;
+}
+
+if ($requestedAction === $statusAction) {
+    $_GET['endpoint'] = 'filmes_status';
+    unset($_GET['action']);
+    require __DIR__ . '/api_proxy.php';
+    return;
+}
+
 require __DIR__ . '/includes/import_form_page.php';
 
 renderImportFormPage([
@@ -34,4 +52,6 @@ renderImportFormPage([
             'errors' => 'Erros',
         ],
     ],
+    'action_route' => $importAction,
+    'status_route' => $statusAction,
 ]);

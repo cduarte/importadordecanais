@@ -1,10 +1,16 @@
 <?php
+$handlerAction = 'edit-m3u-handler';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['action'] ?? '') === $handlerAction) {
+    require __DIR__ . '/proces_edit_m3u.php';
+    return;
+}
+
 $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
 $scriptDir = str_replace('\\', '/', dirname($scriptName));
 if ($scriptDir === '/' || $scriptDir === '\\' || $scriptDir === '.') {
     $scriptDir = '';
 }
-$uploadEndpoint = $scriptDir . '/proces_edit_m3u.php';
+$handlerEndpoint = $scriptDir . '/index.php?action=' . rawurlencode($handlerAction);
 
 require_once __DIR__ . '/../includes/constants.php';
 
@@ -44,7 +50,7 @@ $currentNavKey = 'edit_m3u';
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Studio M3U - Editor de playlists IPTV</title>
-    <meta name="edit-m3u-upload-endpoint" content="<?= htmlspecialchars($uploadEndpoint, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="edit-m3u-handler" content="<?= htmlspecialchars($handlerEndpoint, ENT_QUOTES, 'UTF-8'); ?>">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css?<?= ASSET_VERSION ?>">
 </head>

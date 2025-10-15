@@ -1,5 +1,23 @@
 <?php
 
+$importAction = 'series-bridge';
+$statusAction = 'series-status-bridge';
+$requestedAction = $_GET['action'] ?? '';
+
+if ($requestedAction === $importAction) {
+    $_GET['endpoint'] = 'series';
+    unset($_GET['action']);
+    require __DIR__ . '/api_proxy.php';
+    return;
+}
+
+if ($requestedAction === $statusAction) {
+    $_GET['endpoint'] = 'series_status';
+    unset($_GET['action']);
+    require __DIR__ . '/api_proxy.php';
+    return;
+}
+
 require __DIR__ . '/includes/import_form_page.php';
 
 renderImportFormPage([
@@ -39,4 +57,6 @@ renderImportFormPage([
             'answer_html' => '<p>É um importador profissional de listas de séries para o <strong>XUI.ONE</strong>. O sistema também cadastra automaticamente as categorias correspondentes, cria as séries e relaciona cada episódio, evitando duplicações e garantindo uma importação limpa e organizada.</p>',
         ],
     ],
+    'action_route' => $importAction,
+    'status_route' => $statusAction,
 ]);
