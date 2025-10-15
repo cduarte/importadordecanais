@@ -14,8 +14,10 @@ body {
     margin: 0;
     min-height: 100vh;
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 2.5rem;
     padding: 48px 0;
     background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.2), transparent 55%),
                 radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.2), transparent 50%),
@@ -23,8 +25,143 @@ body {
     color: var(--text);
 }
 
-main {
+.page-content {
     width: min(960px, 94vw);
+}
+
+.nav-container {
+    width: min(960px, 94vw);
+    position: relative;
+    z-index: 1000;
+}
+
+.nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 18px;
+    padding: 0.75rem 1rem;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(12px);
+}
+
+.nav-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    border: none;
+    background: rgba(15, 23, 42, 0.6);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.nav-toggle:hover,
+.nav-toggle:focus-visible {
+    background: rgba(56, 189, 248, 0.25);
+    color: var(--accent);
+    outline: none;
+}
+
+.nav-toggle .icon {
+    pointer-events: none;
+    font-size: 1.2rem;
+}
+
+.nav-toggle .icon-close {
+    display: none;
+}
+
+.nav-toggle.open .icon-close {
+    display: inline;
+}
+
+.nav-toggle.open .icon-hamburger {
+    display: none;
+}
+
+.navigation {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.nav-drawer {
+    position: fixed;
+    inset: 0 auto 0 0;
+    height: 100vh;
+    width: min(280px, 80%);
+    padding: 1.5rem 1.25rem;
+    background: rgba(15, 23, 42, 0.95);
+    border-right: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.55);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 1001;
+    overflow-y: auto;
+    backdrop-filter: blur(12px);
+}
+
+.nav-drawer.open {
+    transform: translateX(0);
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 16px;
+    color: rgba(226, 232, 240, 0.85);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.35);
+}
+
+.nav-link i {
+    font-size: 1.05rem;
+}
+
+.nav-link:hover {
+    color: #0f172a;
+    background: linear-gradient(120deg, rgba(56, 189, 248, 0.85), rgba(14, 165, 233, 0.85));
+    border-color: rgba(56, 189, 248, 0.85);
+}
+
+.nav-link.active {
+    color: #0b1120;
+    background: linear-gradient(120deg, rgba(56, 189, 248, 0.95), rgba(14, 165, 233, 0.95));
+    border-color: rgba(56, 189, 248, 0.95);
+}
+
+.nav-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+}
+
+.nav-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .card {
