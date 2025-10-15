@@ -97,7 +97,7 @@ $currentNavKey = 'edit_m3u';
                         <small>Monte listas personalizadas em segundos</small>
                     </div>
                 </div>
-                <div class="topbar-actions">
+                <div class="topbar-actions" style=" display: none; ">
                     <label class="upload-button" id="uploadButton">
                         <input type="file" id="fileInput" accept=".m3u,.m3u8,.txt">
                         <span id="fileLabel">Enviar arquivo M3U</span>
