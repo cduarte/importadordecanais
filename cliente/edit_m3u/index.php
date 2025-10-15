@@ -144,9 +144,12 @@ $currentNavKey = 'edit_m3u';
 
                     <article class="card board">
                         <header class="board-header">
-                            <div>
-                                <h3>Grupos selecionados (<span id="selectedCount">0</span>)</h3>
-                                <small>Somente esses grupos serão exportados.</small>
+                            <div class="board-header-main">
+                                <div class="board-header-title">
+                                    <h3>Grupos selecionados (<span id="selectedCount">0</span>)</h3>
+                                    <small>Somente esses grupos serão exportados.</small>
+                                </div>
+                                <div class="pagination pagination-inline" id="selectedPagination" hidden></div>
                             </div>
                             <button id="btnExportSelection" class="primary-button" disabled>Exportar seleção</button>
                         </header>
@@ -154,7 +157,6 @@ $currentNavKey = 'edit_m3u';
                             <div class="list-content" id="selectedGroupsList">
                                 <p class="empty-state">Escolha grupos à esquerda para incluí-los aqui.</p>
                             </div>
-                            <div class="pagination" id="selectedPagination" hidden></div>
                         </div>
                     </article>
                 </section>
