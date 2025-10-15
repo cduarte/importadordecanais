@@ -22,7 +22,20 @@ $buildLocalUrl = static function (string $script, array $params = []) {
         $baseDirectory = rtrim($baseDirectory, '/');
     }
 
-    $url = ($baseDirectory === '' ? '' : $baseDirectory) . '/' . ltrim($script, '/');
+    $targetDirectory = $baseDirectory;
+
+    if (strncmp($script, './', 2) === 0) {
+        $script = substr($script, 2);
+        $targetDirectory = $scriptDirectory;
+
+        if ($targetDirectory === '/' || $targetDirectory === '\\' || $targetDirectory === '.') {
+            $targetDirectory = '';
+        } else {
+            $targetDirectory = rtrim($targetDirectory, '/');
+        }
+    }
+
+    $url = ($targetDirectory === '' ? '' : $targetDirectory) . '/' . ltrim($script, '/');
 
     if (!empty($params)) {
         $queryString = http_build_query($params);
@@ -387,7 +400,7 @@ function publicPath(string $absolutePath): string
                         </ul>
                     </div>
                     <div class="results-actions">
-                        <a class="ghost-button" href="<?php echo htmlspecialchars($buildLocalUrl('index.php'), ENT_QUOTES, 'UTF-8'); ?>">Processar nova playlist</a>
+                        <a class="ghost-button" href="<?php echo htmlspecialchars($buildLocalUrl('./index.php'), ENT_QUOTES, 'UTF-8'); ?>">Processar nova playlist</a>
                     </div>
                 <?php endif; ?>
             </article>
