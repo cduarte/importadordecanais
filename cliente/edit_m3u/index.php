@@ -25,7 +25,7 @@ $uploadEndpoint = $scriptDir . '/upload.php';
                 <p class="landing-subtitle">Seus canais, do seu jeito</p>
                 <h1>Personalize sua playlist M3U</h1>
                 <p class="landing-description">
-                    Envie, filtre e exporte suas playlists IPTV M3U/EPG personalizadas — sem bagunça, apenas os canais que você realmente quer!
+                    Carregue, filtre, personalize e exporte suas playlists IPTV M3U/EPG — sem bagunça, só os canais que você quer!
                 </p>
             </div>
 
