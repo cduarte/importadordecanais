@@ -3,6 +3,16 @@ declare(strict_types=1);
 
 $error = null;
 $results = null;
+$activeMode = 'file';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $postedUrl = trim((string)($_POST['m3u_url'] ?? ''));
+    if ($postedUrl !== '') {
+        $activeMode = 'url';
+    } elseif (!empty($_FILES['m3u_file']['name'] ?? '')) {
+        $activeMode = 'file';
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -236,16 +246,15 @@ function publicPath(string $absolutePath): string
             </div>
         <?php endif; ?>
 
-        <form method="post" enctype="multipart/form-data">
-            <div class="form-grid">
-                <div class="input-group">
-                    <label for="m3u_url">URL da lista M3U</label>
-                    <input type="url" name="m3u_url" id="m3u_url" placeholder="https://exemplo.com/lista.m3u" value="<?php echo isset($_POST['m3u_url']) ? htmlspecialchars((string)$_POST['m3u_url'], ENT_QUOTES, 'UTF-8') : ''; ?>">
-                </div>
+        <form method="post" enctype="multipart/form-data" data-default-mode="<?php echo htmlspecialchars($activeMode, ENT_QUOTES, 'UTF-8'); ?>">
+            <div class="mode-switch" role="tablist" aria-label="Selecione a forma de envio">
+                <button type="button" class="mode-button<?php echo $activeMode === 'file' ? ' active' : ''; ?>" data-mode="file">Por arquivo</button>
+                <button type="button" class="mode-button<?php echo $activeMode === 'url' ? ' active' : ''; ?>" data-mode="url">Por URL</button>
+            </div>
 
-                <div class="input-group">
-                    <label>Upload da lista</label>
-                    <div class="dropzone">
+            <div class="mode-panels">
+                <div class="mode-pane<?php echo $activeMode === 'file' ? ' active' : ''; ?>" data-mode="file">
+                    <div class="dropzone" data-role="file" role="button" tabindex="0" aria-label="Enviar arquivo M3U">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 16a1 1 0 0 1-1-1V9.41l-1.3 1.3a1 1 0 1 1-1.4-1.42l3-3a1 1 0 0 1 1.4 0l3 3a1 1 0 1 1-1.4 1.42L13 9.41V15a1 1 0 0 1-1 1Z"/>
                             <path d="M6 20a4 4 0 0 1-4-4 4 4 0 0 1 3-3.86A6 6 0 0 1 11 5a6 6 0 0 1 5.61 3.8A5 5 0 0 1 22 13a5 5 0 0 1-5 5H6Zm0-2h11a3 3 0 1 0-.28-5.99 1 1 0 0 1-1-.65A4 4 0 0 0 11 7a4 4 0 0 0-3.63 2.25 1 1 0 0 1-.83.57A2 2 0 0 0 4 12a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1Zm0 0"/>
@@ -254,6 +263,21 @@ function publicPath(string $absolutePath): string
                         <span>ou clique para selecionar um arquivo</span>
                     </div>
                     <input type="file" name="m3u_file" id="m3u_file" accept=".m3u,.txt" hidden>
+                    <p class="hint">Escolha o arquivo .m3u enviado pelo seu provedor ou arraste-o para esta área.</p>
+                </div>
+
+                <div class="mode-pane<?php echo $activeMode === 'url' ? ' active' : ''; ?>" data-mode="url">
+                    <div class="url-panel">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M8.59 13.41a1 1 0 0 1 0-1.41L12.59 8a1 1 0 0 1 1.41 1.41L10 13.41a1 1 0 0 1-1.41 0Z"/>
+                            <path d="M7.05 7.05a7 7 0 0 1 9.9 0l.7.7a7 7 0 0 1 0 9.9l-1.59 1.59a7 7 0 0 1-9.9 0l-.7-.7a7 7 0 0 1 0-9.9l1.59-1.59a1 1 0 1 1 1.41 1.41L7.41 8.46a5 5 0 0 0 0 7.08l.7.7a5 5 0 0 0 7.08 0l1.59-1.59a5 5 0 0 0 0-7.08l-.7-.7a5 5 0 0 0-7.08 0L7.05 7.05Z"/>
+                        </svg>
+                        <div class="url-fields">
+                            <strong>Cole a URL da sua lista M3U</strong>
+                            <input type="url" name="m3u_url" id="m3u_url" placeholder="https://seuprovedor.com/lista.m3u" value="<?php echo isset($_POST['m3u_url']) ? htmlspecialchars((string)$_POST['m3u_url'], ENT_QUOTES, 'UTF-8') : ''; ?>" aria-label="URL da lista M3U"<?php echo $activeMode === 'url' ? ' required' : ''; ?>>
+                        </div>
+                    </div>
+                    <p class="hint">Utilize um link direto para o arquivo .m3u hospedado pelo fornecedor.</p>
                 </div>
             </div>
 
@@ -263,7 +287,7 @@ function publicPath(string $absolutePath): string
 
             <footer>
                 <button type="submit">Processar lista</button>
-                <p style="margin-top: 12px;">Você pode informar uma URL ou enviar um arquivo diretamente.</p>
+                <p class="footnote">Alterne entre URL ou arquivo conforme a lista disponível.</p>
             </footer>
         </form>
 

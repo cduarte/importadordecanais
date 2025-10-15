@@ -60,19 +60,21 @@ header p {
     font-size: 1.05rem;
 }
 
-.form-grid {
-    display: grid;
-    gap: 24px;
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
 }
 
-.input-group label {
-    display: block;
-    margin-bottom: 8px;
-    color: var(--muted);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    font-size: 0.75rem;
+.mode-switch {
+    display: inline-flex;
+    align-self: center;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid var(--border);
+    padding: 6px;
+    border-radius: 999px;
+    gap: 6px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 input[type="url"],
@@ -93,13 +95,24 @@ input[type="url"]:focus {
     transform: translateY(-1px);
 }
 
+input::placeholder {
+    color: rgba(148, 163, 184, 0.85);
+}
+
 .dropzone {
     border: 2px dashed rgba(56, 189, 248, 0.4);
     border-radius: 16px;
     padding: 48px 24px;
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
     background: rgba(15, 23, 42, 0.5);
     transition: border-color 0.2s ease, background 0.2s ease;
+    cursor: pointer;
+    min-height: 220px;
 }
 
 .dropzone.dragover {
@@ -110,7 +123,6 @@ input[type="url"]:focus {
 .dropzone svg {
     width: 56px;
     height: 56px;
-    margin-bottom: 16px;
     fill: var(--accent);
 }
 
@@ -147,8 +159,99 @@ button:disabled {
     box-shadow: none;
 }
 
+.mode-button {
+    background: transparent;
+    color: var(--muted);
+    padding: 10px 24px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    box-shadow: none;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.mode-button:hover {
+    transform: none;
+    box-shadow: none;
+    color: var(--text);
+}
+
+.mode-button.active {
+    background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+    color: #0b1120;
+    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.25);
+}
+
+.mode-panels {
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    background: rgba(15, 23, 42, 0.55);
+    padding: clamp(28px, 5vw, 44px);
+    min-height: 260px;
+}
+
+.mode-pane {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    text-align: center;
+}
+
+.mode-pane.active {
+    display: flex;
+}
+
+.mode-pane .hint {
+    max-width: 540px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.mode-pane[data-mode="url"] {
+    align-items: stretch;
+}
+
+.url-panel {
+    border: 2px dashed rgba(56, 189, 248, 0.4);
+    border-radius: 16px;
+    padding: 32px;
+    background: rgba(15, 23, 42, 0.5);
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.url-panel svg {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    fill: var(--accent);
+}
+
+.url-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
+.url-fields strong {
+    font-size: 1.05rem;
+}
+
+.footnote {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
 .progress {
-    margin-top: 16px;
+    margin-top: 0;
     height: 10px;
     background: rgba(148, 163, 184, 0.2);
     border-radius: 999px;
@@ -214,10 +317,14 @@ button:disabled {
 }
 
 footer {
-    margin-top: 32px;
+    margin-top: 0;
     text-align: center;
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
 }
 
 @media (max-width: 640px) {
@@ -226,5 +333,28 @@ footer {
     }
     .dropzone {
         padding: 32px 20px;
+        min-height: 180px;
+    }
+
+    .mode-switch {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .mode-button {
+        flex: 1;
+    }
+
+    .mode-panels {
+        padding: 24px;
+    }
+
+    .url-panel {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .url-panel svg {
+        margin-bottom: 8px;
     }
 }
