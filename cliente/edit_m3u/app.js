@@ -52,6 +52,8 @@
     const btnCloseEdit = document.getElementById('btnCloseEdit');
 
     const knownAttributes = ['tvg-id', 'tvg-name', 'tvg-logo', 'group-title'];
+    const uploadEndpointMeta = document.querySelector('meta[name="edit-m3u-upload-endpoint"]');
+    const uploadEndpoint = uploadEndpointMeta?.content?.trim() || 'upload.php';
 
     let editingGroup = null;
     let landingBusy = false;
@@ -129,7 +131,7 @@
             formData.append('playlist_url', url);
         }
 
-        const response = await fetch('upload.php', {
+        const response = await fetch(uploadEndpoint, {
             method: 'POST',
             body: formData,
         });
