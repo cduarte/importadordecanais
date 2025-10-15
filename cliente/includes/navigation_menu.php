@@ -20,11 +20,11 @@ $navItems = [
         'path' => 'dividir_m3u/',
         'icon' => 'fa-scissors',
     ],
-    'edit_m3u' => [
+    /*'edit_m3u' => [
         'label' => 'Editar M3U',
         'path' => 'edit_m3u/',
         'icon' => 'fa-pen-to-square',
-    ],
+    ],*/
 ];
 
 if (!isset($currentNavKey) || !array_key_exists($currentNavKey, $navItems)) {
