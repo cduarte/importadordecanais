@@ -80,12 +80,18 @@
                     url: '',
                     tvgId: attributes['tvg-id'] || '',
                     logo: attributes['tvg-logo'] || '',
-                    extras
+                    extras,
+                    directives: []
                 };
                 continue;
             }
 
-            if (!line.startsWith('#') && current) {
+            if (current) {
+                if (line.startsWith('#')) {
+                    current.directives.push(line);
+                    continue;
+                }
+
                 current.url = line;
                 parsed.push(current);
                 current = null;
@@ -124,6 +130,15 @@
                 ? `#EXTINF:-1 ${attributes.join(' ')},${displayName}`
                 : `#EXTINF:-1,${displayName}`;
             lines.push(infoLine);
+
+            if (Array.isArray(channel.directives)) {
+                channel.directives.forEach((directive) => {
+                    const value = typeof directive === 'string' ? directive.trim() : '';
+                    if (!value) return;
+                    lines.push(value);
+                });
+            }
+
             lines.push(channel.url || '');
         });
 
@@ -191,7 +206,12 @@
             url: channel.url || '',
             tvgId: channel.tvgId || '',
             logo: channel.logo || '',
-            extras: Array.isArray(channel.extras) ? channel.extras : []
+            extras: Array.isArray(channel.extras) ? channel.extras : [],
+            directives: Array.isArray(channel.directives)
+                ? channel.directives
+                      .map((directive) => (typeof directive === 'string' ? directive.trim() : ''))
+                      .filter(Boolean)
+                : []
         }));
         state.selectedGroups.clear();
         state.activeGroup = null;
@@ -397,7 +417,9 @@
         const clone = {
             ...channel,
             uid: generateId(),
-            name: `${channel.name || 'Canal'} (cópia)`
+            name: `${channel.name || 'Canal'} (cópia)`,
+            extras: Array.isArray(channel.extras) ? channel.extras.map((extra) => ({ ...extra })) : [],
+            directives: Array.isArray(channel.directives) ? [...channel.directives] : []
         };
         const index = state.channels.findIndex((item) => item.uid === uid);
         state.channels.splice(index + 1, 0, clone);
@@ -550,7 +572,6 @@
             channel.tvgName = input.value;
         }
         updateExportPreview();
-        updateActionsState();
     });
 
     channelsTable.addEventListener('change', (event) => {
