@@ -357,7 +357,13 @@
     }
 
     function escapeAttribute(value) {
-        return value.replace(/"/g, '\\"');
+        if (value == null) {
+            return '';
+        }
+
+        return String(value)
+            .replace(/[\r\n]+/g, ' ')
+            .trim();
     }
 
     function serializeM3U(channels) {
