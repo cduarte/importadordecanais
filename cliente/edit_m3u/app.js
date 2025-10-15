@@ -64,7 +64,7 @@
 
     const knownAttributes = ['tvg-id', 'tvg-name', 'tvg-logo', 'group-title'];
     const uploadEndpointMeta = document.querySelector('meta[name="edit-m3u-upload-endpoint"]');
-    const uploadEndpoint = uploadEndpointMeta?.content?.trim() || 'upload.php';
+    const uploadEndpoint = uploadEndpointMeta?.content?.trim() || 'proces_edit_m3u.php';
 
     let editingGroup = null;
     let landingBusy = false;

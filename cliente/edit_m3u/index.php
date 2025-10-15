@@ -4,7 +4,7 @@ $scriptDir = str_replace('\\', '/', dirname($scriptName));
 if ($scriptDir === '/' || $scriptDir === '\\' || $scriptDir === '.') {
     $scriptDir = '';
 }
-$uploadEndpoint = $scriptDir . '/upload.php';
+$uploadEndpoint = $scriptDir . '/proces_edit_m3u.php';
 
 $buildLocalUrl = static function (string $script, array $params = []) use ($scriptName) {
     $scriptPath = $scriptName !== '' ? $scriptName : ($_SERVER['PHP_SELF'] ?? '');
