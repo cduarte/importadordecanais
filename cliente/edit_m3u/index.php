@@ -85,7 +85,6 @@ $currentNavKey = 'edit_m3u';
                         <input type="url" id="landingUrlInput" name="playlist_url" placeholder="https://yourprovider.com/path-to.m3u" required>
                         <button class="primary-button" type="submit" id="landingDownloadButton">Baixar playlist</button>
                     </div>
-                    <p class="landing-footnote">O sistema fará o download do arquivo, armazenará e manterá uma cópia no seu histórico.</p>
                 </form>
             </div>
 
