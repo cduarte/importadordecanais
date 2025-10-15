@@ -9,98 +9,144 @@
 </head>
 <body>
     <div class="app-shell">
-        <header class="topbar">
-            <div class="brand">
-                <div class="brand-badge">M3U</div>
-                <div class="brand-text">
-                    <strong>Playlist Studio</strong>
-                    <small>Monte listas personalizadas em segundos</small>
-                </div>
-            </div>
-            <div class="topbar-actions">
-                <label class="upload-button" id="uploadButton">
-                    <input type="file" id="fileInput" accept=".m3u,.m3u8,.txt">
-                    <span id="fileLabel">Enviar arquivo M3U</span>
-                </label>
-                <button id="btnOpenPaste" class="ghost-button">Colar playlist</button>
-            </div>
-        </header>
+        <section class="landing" id="landingScreen">
+            <header class="landing-topbar">
+                <div class="landing-brand">M3U<span>EDIT</span></div>
+                <button class="lang-button" type="button">English</button>
+            </header>
 
-        <main class="workspace">
-            <section class="card how-to">
-                <div class="how-to-header">
-                    <h2>How To Use</h2>
-                    <p>Arraste grupos, ajuste a seleção e exporte apenas o que importa.</p>
-                </div>
-                <ol>
-                    <li><strong>Envie</strong> sua playlist pelo botão acima ou cole o conteúdo M3U.</li>
-                    <li><strong>Explore</strong> os grupos na coluna da esquerda e clique em <em>Adicionar</em> para movê-los para a seleção.</li>
-                    <li><strong>Pré-visualize</strong> os canais do grupo ativo e ajuste informações caso precise.</li>
-                    <li><strong>Exporte</strong> somente os grupos selecionados, baixando o arquivo ou copiando o texto.</li>
-                </ol>
-            </section>
+            <div class="landing-hero">
+                <p class="landing-subtitle">Your Channels, Your Choice</p>
+                <h1>Level Up Your IPTV Experience with Customized M3U Playlists</h1>
+                <p class="landing-description">
+                    Upload, filter, and export your personalized IPTV M3U/EPG playlists — no more clutter, just the channels you want!
+                </p>
+            </div>
 
-            <section class="board-grid">
-                <article class="card board">
-                    <header class="board-header">
-                        <div>
-                            <h3>Grupos (<span id="groupsCount">0</span>)</h3>
-                            <small>Importe uma playlist para listar todos os grupos disponíveis.</small>
+            <div class="landing-selector" role="tablist" aria-label="Import options">
+                <button class="landing-tab active" type="button" data-landing-tab="file" aria-selected="true">BY FILE</button>
+                <button class="landing-tab" type="button" data-landing-tab="url" aria-selected="false">BY URL</button>
+            </div>
+
+            <div class="landing-panels">
+                <div class="landing-card" data-landing-panel="file">
+                    <input type="file" id="landingFileInput" accept=".m3u,.m3u8,.txt" hidden>
+                    <div class="drop-zone" id="landingDropZone" role="button" tabindex="0" aria-controls="landingFileInput">
+                        <div class="drop-zone-inner">
+                            <button class="primary-button" type="button" id="landingChooseButton">Choose file</button>
+                            <p class="drop-hint">or drop your M3U here</p>
                         </div>
-                        <div class="board-search">
-                            <input type="search" id="groupSearch" placeholder="Buscar grupos">
+                    </div>
+                    <p class="landing-footnote">Supported formats: .m3u, .m3u8, .txt (UTF-8)</p>
+                </div>
+
+                <form class="landing-card hidden" id="landingUrlForm" data-landing-panel="url">
+                    <label for="landingUrlInput" class="landing-url-label">Paste the source URL</label>
+                    <div class="landing-url-field">
+                        <input type="url" id="landingUrlInput" name="playlist_url" placeholder="https://yourprovider.com/path-to.m3u" required>
+                        <button class="primary-button" type="submit" id="landingDownloadButton">Download playlist</button>
+                    </div>
+                    <p class="landing-footnote">The system will fetch the file, store it, and keep a copy in your history.</p>
+                </form>
+            </div>
+
+            <p class="landing-status" id="landingStatus" role="status" hidden></p>
+        </section>
+
+        <div class="editor-shell hidden" id="editorShell">
+            <header class="topbar">
+                <div class="brand">
+                    <div class="brand-badge">M3U</div>
+                    <div class="brand-text">
+                        <strong>Playlist Studio</strong>
+                        <small>Monte listas personalizadas em segundos</small>
+                    </div>
+                </div>
+                <div class="topbar-actions">
+                    <label class="upload-button" id="uploadButton">
+                        <input type="file" id="fileInput" accept=".m3u,.m3u8,.txt">
+                        <span id="fileLabel">Enviar arquivo M3U</span>
+                    </label>
+                    <button id="btnOpenPaste" class="ghost-button">Colar playlist</button>
+                </div>
+            </header>
+
+            <main class="workspace">
+                <section class="card how-to">
+                    <div class="how-to-header">
+                        <h2>How To Use</h2>
+                        <p>Arraste grupos, ajuste a seleção e exporte apenas o que importa.</p>
+                    </div>
+                    <ol>
+                        <li><strong>Envie</strong> sua playlist pelo botão acima ou cole o conteúdo M3U.</li>
+                        <li><strong>Explore</strong> os grupos na coluna da esquerda e clique em <em>Adicionar</em> para movê-los para a seleção.</li>
+                        <li><strong>Pré-visualize</strong> os canais do grupo ativo e ajuste informações caso precise.</li>
+                        <li><strong>Exporte</strong> somente os grupos selecionados, baixando o arquivo ou copiando o texto.</li>
+                    </ol>
+                </section>
+
+                <section class="board-grid">
+                    <article class="card board">
+                        <header class="board-header">
+                            <div>
+                                <h3>Grupos (<span id="groupsCount">0</span>)</h3>
+                                <small>Importe uma playlist para listar todos os grupos disponíveis.</small>
+                            </div>
+                            <div class="board-search">
+                                <input type="search" id="groupSearch" placeholder="Buscar grupos">
+                            </div>
+                        </header>
+                        <div class="board-body" id="groupsList">
+                            <p class="empty-state">Nenhum arquivo importado ainda.</p>
+                        </div>
+                    </article>
+
+                    <article class="card board">
+                        <header class="board-header">
+                            <div>
+                                <h3>Grupos selecionados (<span id="selectedCount">0</span>)</h3>
+                                <small>Somente esses grupos serão exportados.</small>
+                            </div>
+                            <button id="btnExportSelection" class="primary-button" disabled>Exportar seleção</button>
+                        </header>
+                        <div class="board-body" id="selectedGroupsList">
+                            <p class="empty-state">Escolha grupos à esquerda para incluí-los aqui.</p>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="card channels-panel">
+                    <header class="channels-header">
+                        <div>
+                            <h3 id="channelsTitle">Canais</h3>
+                            <small id="channelsSubtitle">Selecione um grupo para visualizar os canais disponíveis.</small>
+                        </div>
+                        <div class="channels-actions">
+                            <button id="btnDownload" class="primary-button" disabled>Baixar M3U</button>
+                            <button id="btnCopy" class="ghost-button" disabled>Copiar playlist</button>
                         </div>
                     </header>
-                    <div class="board-body" id="groupsList">
-                        <p class="empty-state">Nenhum arquivo importado ainda.</p>
+                    <div class="channels-table" id="channelsTable">
+                        <p class="empty-state">Importe um arquivo para começar.</p>
                     </div>
-                </article>
+                </section>
 
-                <article class="card board">
-                    <header class="board-header">
+                <section class="card preview-panel">
+                    <header class="preview-header">
                         <div>
-                            <h3>Grupos selecionados (<span id="selectedCount">0</span>)</h3>
-                            <small>Somente esses grupos serão exportados.</small>
+                            <h3>Pré-visualização</h3>
+                            <small>Conteúdo M3U gerado a partir da seleção atual.</small>
                         </div>
-                        <button id="btnExportSelection" class="primary-button" disabled>Exportar seleção</button>
+                        <button id="btnClearList" class="danger-button" disabled>Limpar tudo</button>
                     </header>
-                    <div class="board-body" id="selectedGroupsList">
-                        <p class="empty-state">Escolha grupos à esquerda para incluí-los aqui.</p>
-                    </div>
-                </article>
-            </section>
+                    <textarea id="exportPreview" rows="8" readonly placeholder="A exportação aparecerá aqui assim que você importar uma playlist."></textarea>
+                </section>
+            </main>
 
-            <section class="card channels-panel">
-                <header class="channels-header">
-                    <div>
-                        <h3 id="channelsTitle">Canais</h3>
-                        <small id="channelsSubtitle">Selecione um grupo para visualizar os canais disponíveis.</small>
-                    </div>
-                    <div class="channels-actions">
-                        <button id="btnDownload" class="primary-button" disabled>Baixar M3U</button>
-                        <button id="btnCopy" class="ghost-button" disabled>Copiar playlist</button>
-                    </div>
-                </header>
-                <div class="channels-table" id="channelsTable">
-                    <p class="empty-state">Importe um arquivo para começar.</p>
-                </div>
-            </section>
-
-            <section class="card preview-panel">
-                <header class="preview-header">
-                    <div>
-                        <h3>Pré-visualização</h3>
-                        <small>Conteúdo M3U gerado a partir da seleção atual.</small>
-                    </div>
-                    <button id="btnClearList" class="danger-button" disabled>Limpar tudo</button>
-                </header>
-                <textarea id="exportPreview" rows="8" readonly placeholder="A exportação aparecerá aqui assim que você importar uma playlist."></textarea>
-            </section>
-        </main>
-
-        <footer class="footer">
-            <small>Ferramenta inspirada em m3uedit.com. Os dados permanecem apenas no seu navegador.</small>
-        </footer>
+            <footer class="footer">
+                <small>Ferramenta inspirada em m3uedit.com. Os dados permanecem apenas no seu navegador.</small>
+            </footer>
+        </div>
     </div>
 
     <div class="modal" id="pasteModal" hidden>

@@ -10,6 +10,18 @@
         groupExclusions: new Map()
     };
 
+    const landingScreen = document.getElementById('landingScreen');
+    const editorShell = document.getElementById('editorShell');
+    const landingTabs = Array.from(document.querySelectorAll('[data-landing-tab]'));
+    const landingPanels = Array.from(document.querySelectorAll('[data-landing-panel]'));
+    const landingFileInput = document.getElementById('landingFileInput');
+    const landingDropZone = document.getElementById('landingDropZone');
+    const landingChooseButton = document.getElementById('landingChooseButton');
+    const landingStatus = document.getElementById('landingStatus');
+    const landingUrlForm = document.getElementById('landingUrlForm');
+    const landingUrlInput = document.getElementById('landingUrlInput');
+    const landingDownloadButton = document.getElementById('landingDownloadButton');
+
     const fileInput = document.getElementById('fileInput');
     const fileLabel = document.getElementById('fileLabel');
     const pasteModal = document.getElementById('pasteModal');
@@ -42,6 +54,124 @@
     const knownAttributes = ['tvg-id', 'tvg-name', 'tvg-logo', 'group-title'];
 
     let editingGroup = null;
+    let landingBusy = false;
+
+    function setLandingStatus(message, type = 'info') {
+        if (!landingStatus) {
+            return;
+        }
+        const text = message?.trim() ?? '';
+        landingStatus.textContent = text;
+        landingStatus.dataset.status = type;
+        landingStatus.hidden = text === '';
+    }
+
+    function clearLandingStatus() {
+        setLandingStatus('', 'info');
+    }
+
+    function setLandingBusy(isBusy) {
+        landingBusy = isBusy;
+        if (landingScreen) {
+            landingScreen.classList.toggle('is-loading', isBusy);
+        }
+
+        const toggleDisabled = (element) => {
+            if (element) {
+                element.disabled = isBusy;
+            }
+        };
+
+        toggleDisabled(landingDownloadButton);
+        toggleDisabled(landingChooseButton);
+        toggleDisabled(landingUrlInput);
+        toggleDisabled(landingFileInput);
+
+        landingTabs.forEach((tab) => {
+            tab.disabled = isBusy;
+        });
+    }
+
+    function switchLandingTab(targetKey) {
+        if (!targetKey) {
+            return;
+        }
+
+        landingTabs.forEach((tab) => {
+            const isActive = tab.dataset.landingTab === targetKey;
+            tab.classList.toggle('active', isActive);
+            tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        landingPanels.forEach((panel) => {
+            const isActive = panel.dataset.landingPanel === targetKey;
+            panel.classList.toggle('hidden', !isActive);
+            panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+        });
+    }
+
+    function enterEditor() {
+        if (landingScreen) {
+            landingScreen.classList.add('hidden');
+        }
+        if (editorShell) {
+            editorShell.classList.remove('hidden');
+        }
+        clearLandingStatus();
+    }
+
+    async function uploadPlaylistPayload({ file, url }) {
+        const formData = new FormData();
+        if (file) {
+            formData.append('playlist', file);
+        }
+        if (url) {
+            formData.append('playlist_url', url);
+        }
+
+        const response = await fetch('upload.php', {
+            method: 'POST',
+            body: formData,
+        });
+
+        let payload;
+        try {
+            payload = await response.json();
+        } catch (error) {
+            throw new Error('Resposta inválida do servidor.');
+        }
+
+        if (!response.ok || !payload || payload.success !== true) {
+            const message = typeof payload?.error === 'string' && payload.error.trim()
+                ? payload.error.trim()
+                : 'Não foi possível processar a playlist enviada.';
+            throw new Error(message);
+        }
+
+        return payload;
+    }
+
+    function handlePlaylistPayload(payload) {
+        if (!payload || typeof payload !== 'object') {
+            throw new Error('Resposta inválida do servidor.');
+        }
+
+        const content = typeof payload.content === 'string' ? payload.content : '';
+        if (!content.trim()) {
+            throw new Error('A playlist retornou vazia.');
+        }
+
+        const channels = parseM3U(content);
+        if (!channels.length) {
+            throw new Error('Não foram encontrados canais na playlist informada.');
+        }
+
+        const fileName = payload.fileName || payload.originalName || payload.storedName || 'playlist.m3u';
+        state.fileName = fileName;
+        updateFileLabel(fileName);
+        setChannels(channels);
+        enterEditor();
+    }
 
     function normalizeGroup(name) {
         const trimmed = (name ?? '').trim();
@@ -640,26 +770,74 @@
         render();
     }
 
-    function importFromFile(file) {
+    async function importFromFile(file, { fromLanding = false, inputElement = null } = {}) {
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const content = String(event.target?.result || '');
-                const channels = parseM3U(content);
-                if (!channels.length) {
-                    alert('Não foi possível encontrar canais no arquivo informado.');
-                    return;
-                }
-                state.fileName = file.name;
-                updateFileLabel(file.name);
-                setChannels(channels);
-            } catch (error) {
-                console.error(error);
-                alert('Ocorreu um erro ao ler o arquivo M3U.');
+
+        const resetInput = () => {
+            if (inputElement) {
+                inputElement.value = '';
             }
         };
-        reader.readAsText(file);
+
+        try {
+            if (fromLanding) {
+                setLandingBusy(true);
+                setLandingStatus(`Processando ${file.name || 'playlist.m3u'}...`, 'info');
+            }
+
+            const payload = await uploadPlaylistPayload({ file });
+            handlePlaylistPayload(payload);
+
+            if (fromLanding) {
+                setLandingStatus(`Arquivo ${payload.fileName || file.name} importado com sucesso!`, 'success');
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Não foi possível importar a playlist.';
+            if (fromLanding) {
+                setLandingStatus(message, 'error');
+            } else {
+                alert(message);
+            }
+            throw error;
+        } finally {
+            if (fromLanding) {
+                setLandingBusy(false);
+            }
+            resetInput();
+        }
+    }
+
+    async function importFromUrl(url, { fromLanding = false } = {}) {
+        if (!url) return;
+
+        try {
+            if (fromLanding) {
+                setLandingBusy(true);
+                setLandingStatus('Baixando playlist da URL informada...', 'info');
+            }
+
+            const payload = await uploadPlaylistPayload({ url });
+            handlePlaylistPayload(payload);
+
+            if (fromLanding) {
+                if (landingUrlInput) {
+                    landingUrlInput.value = '';
+                }
+                setLandingStatus('Playlist baixada com sucesso!', 'success');
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Não foi possível importar a playlist.';
+            if (fromLanding) {
+                setLandingStatus(message, 'error');
+            } else {
+                alert(message);
+            }
+            throw error;
+        } finally {
+            if (fromLanding) {
+                setLandingBusy(false);
+            }
+        }
     }
 
     function openPasteModal() {
@@ -710,6 +888,7 @@
             state.fileName = 'playlist.m3u';
             updateFileLabel('Conteúdo colado');
             setChannels(channels);
+            enterEditor();
             closePasteModal();
         } catch (error) {
             console.error(error);
@@ -730,9 +909,98 @@
     editSelectedList.addEventListener('click', handleEditListAction);
     editAvailableList.addEventListener('click', handleEditListAction);
 
+    if (landingTabs.length) {
+        switchLandingTab('file');
+        landingTabs.forEach((tab) => {
+            tab.addEventListener('click', () => {
+                if (landingBusy) return;
+                const target = tab.dataset.landingTab;
+                if (target) {
+                    switchLandingTab(target);
+                    if (target === 'url' && landingUrlInput) {
+                        landingUrlInput.focus();
+                    }
+                }
+            });
+        });
+    }
+
+    if (landingChooseButton) {
+        landingChooseButton.addEventListener('click', () => {
+            if (landingBusy) return;
+            landingFileInput?.click();
+        });
+    }
+
+    if (landingDropZone) {
+        const clearDragState = () => landingDropZone.classList.remove('is-dragover');
+
+        landingDropZone.addEventListener('click', () => {
+            if (landingBusy) return;
+            landingFileInput?.click();
+        });
+
+        landingDropZone.addEventListener('keydown', (event) => {
+            if (landingBusy) return;
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                landingFileInput?.click();
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach((type) => {
+            landingDropZone.addEventListener(type, (event) => {
+                event.preventDefault();
+                if (landingBusy) return;
+                landingDropZone.classList.add('is-dragover');
+            });
+        });
+
+        ['dragleave', 'dragend'].forEach((type) => {
+            landingDropZone.addEventListener(type, clearDragState);
+        });
+
+        landingDropZone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            clearDragState();
+            if (landingBusy) return;
+            const files = event.dataTransfer?.files;
+            if (files?.length) {
+                importFromFile(files[0], { fromLanding: true, inputElement: landingFileInput })
+                    .catch((error) => console.error(error));
+            }
+        });
+    }
+
+    if (landingFileInput) {
+        landingFileInput.addEventListener('change', () => {
+            if (landingBusy) return;
+            if (landingFileInput.files?.length) {
+                importFromFile(landingFileInput.files[0], { fromLanding: true, inputElement: landingFileInput })
+                    .catch((error) => console.error(error));
+            }
+        });
+    }
+
+    if (landingUrlForm) {
+        landingUrlForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            if (landingBusy) return;
+            const url = landingUrlInput?.value.trim() ?? '';
+            if (!url) {
+                setLandingStatus('Informe a URL da playlist antes de continuar.', 'error');
+                landingUrlInput?.focus();
+                return;
+            }
+            importFromUrl(url, { fromLanding: true }).catch((error) => console.error(error));
+        });
+    }
+
     fileInput.addEventListener('change', () => {
         if (fileInput.files?.length) {
-            importFromFile(fileInput.files[0]);
+            importFromFile(fileInput.files[0], { inputElement: fileInput }).catch((error) => {
+                console.error(error);
+            });
         } else {
             updateFileLabel(null);
         }
