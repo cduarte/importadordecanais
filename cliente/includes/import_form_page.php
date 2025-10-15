@@ -294,7 +294,7 @@ HTML
         .nav-container {
             width: min(1280px, 94vw);
             position: relative;
-            margin: 1.35rem auto 1.95rem;
+            margin: 0 auto 1.25rem;
             padding: 0.6rem 0.85rem;
             display: flex;
             align-items: center;
@@ -302,7 +302,7 @@ HTML
             gap: 0.9rem;
             background: linear-gradient(150deg, rgba(8, 13, 26, 0.94), rgba(16, 28, 52, 0.78));
             border: 1px solid rgba(59, 130, 246, 0.26);
-            border-radius: 1.9rem;
+            border-radius: 10px;
             box-shadow: 0 26px 56px rgba(5, 9, 22, 0.55);
             backdrop-filter: blur(16px);
             overflow: hidden;
@@ -417,7 +417,7 @@ HTML
             padding: 0.8rem 1.2rem;
             background: rgba(14, 22, 40, 0.78);
             border: 1px solid rgba(148, 163, 184, 0.24);
-            border-radius: 1.3rem;
+            border-radius: 10px;
             color: rgba(226, 232, 240, 0.9);
             text-decoration: none;
             font-weight: 600;
