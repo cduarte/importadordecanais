@@ -208,7 +208,7 @@ $currentNavKey = 'edit_m3u';
             </main>
 
             <footer class="footer">
-                <small>Ferramenta inspirada em m3uedit.com. Os dados permanecem apenas no seu navegador.</small>
+                <small>Ferramenta para Personalizar sua playlist M3U. Os dados permanecem apenas no seu navegador.</small>
             </footer>
         </div>
     </div>
