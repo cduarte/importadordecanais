@@ -127,9 +127,9 @@ $currentNavKey = 'edit_m3u';
                 <section class="board-grid" id="boardGrid">
                     <article class="card board">
                         <header class="board-header">
-                            <div>
+                            <div class="board-header-main">
                                 <h3>Grupos (<span id="groupsCount">0</span>)</h3>
-                                <small>Importe uma playlist para listar todos os grupos disponíveis.</small>
+                                <div class="pagination pagination-inline" id="groupsPagination" hidden></div>
                             </div>
                             <div class="board-search">
                                 <input type="search" id="groupSearch" placeholder="Buscar grupos">
@@ -139,7 +139,6 @@ $currentNavKey = 'edit_m3u';
                             <div class="list-content" id="groupsList">
                                 <p class="empty-state">Nenhum arquivo importado ainda.</p>
                             </div>
-                            <div class="pagination" id="groupsPagination" hidden></div>
                         </div>
                     </article>
 
