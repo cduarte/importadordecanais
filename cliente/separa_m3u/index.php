@@ -229,15 +229,15 @@ function publicPath(string $absolutePath): string
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Separador de Listas M3U</title>
+    <title>Dividir Playlist</title>
     <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 <main>
     <section class="card">
         <header>
-            <h1>Separador de Listas M3U</h1>
-            <p>Divida suas playlists IPTV M3U por categorias automaticamente.</p>
+            <h1>Dividir Playlist IPTV</h1>
+            <p>Automatize a separação por categorias e ganhe tempo no seu painel IPTV.</p>
         </header>
 
         <?php if ($error): ?>
