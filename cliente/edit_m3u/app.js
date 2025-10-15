@@ -553,11 +553,13 @@
         const hasChannels = state.channels.length > 0;
         const exportable = getExportableChannels();
         const canExport = exportable.length > 0;
+        const hasSelection = state.selectedGroups.size > 0;
+        const canExportSelection = hasSelection && canExport;
 
         btnDownload.disabled = !canExport;
         btnCopy.disabled = !canExport;
         btnClearList.disabled = !hasChannels;
-        btnExportSelection.disabled = !canExport;
+        btnExportSelection.disabled = !canExportSelection;
     }
 
     function render() {
