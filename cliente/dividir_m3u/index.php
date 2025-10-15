@@ -5,6 +5,30 @@ $error = null;
 $results = null;
 $activeMode = 'file';
 
+$buildLocalUrl = static function (string $script, array $params = []) {
+    $scriptPath = $_SERVER['SCRIPT_NAME'] ?? $_SERVER['PHP_SELF'] ?? '';
+    $directory = str_replace('\\\\', '/', dirname($scriptPath));
+
+    if ($directory === '/' || $directory === '\\' || $directory === '.') {
+        $directory = '';
+    } else {
+        $directory = rtrim($directory, '/');
+    }
+
+    $url = ($directory === '' ? '' : $directory) . '/' . ltrim($script, '/');
+
+    if (!empty($params)) {
+        $queryString = http_build_query($params);
+        if ($queryString !== '') {
+            $url .= '?' . $queryString;
+        }
+    }
+
+    return $url;
+};
+
+$currentNavKey = 'dividir_m3u';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postedUrl = trim((string)($_POST['m3u_url'] ?? ''));
     if ($postedUrl !== '') {
@@ -230,10 +254,12 @@ function publicPath(string $absolutePath): string
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dividir Playlist</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-<main>
+<?php include __DIR__ . '/../includes/navigation_menu.php'; ?>
+<main class="page-content">
     <section class="card<?php echo $results ? ' card--results' : ''; ?>">
         <?php if (!$results): ?>
             <header>
@@ -315,5 +341,34 @@ function publicPath(string $absolutePath): string
     </section>
 </main>
 <script src="assets/app.js"></script>
+<script>
+    (function () {
+        const navToggle = document.querySelector('.nav-toggle');
+        const navDrawer = document.querySelector('.nav-drawer');
+        const navOverlay = document.querySelector('.nav-overlay');
+
+        if (!navToggle || !navDrawer || !navOverlay) {
+            return;
+        }
+
+        const setState = (isOpen) => {
+            navDrawer.classList.toggle('open', isOpen);
+            navOverlay.classList.toggle('open', isOpen);
+            navToggle.classList.toggle('open', isOpen);
+            navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        };
+
+        navToggle.addEventListener('click', () => {
+            const isOpen = !navDrawer.classList.contains('open');
+            setState(isOpen);
+        });
+
+        navOverlay.addEventListener('click', () => setState(false));
+
+        navDrawer.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => setState(false));
+        });
+    })();
+</script>
 </body>
 </html>
