@@ -7,7 +7,7 @@ header('Content-Type: application/json; charset=utf-8');
 const EDIT_M3U_STORAGE_DIR = __DIR__ . '/storage';
 const EDIT_M3U_UPLOAD_DIR = EDIT_M3U_STORAGE_DIR . '/uploads';
 const EDIT_M3U_DB_PATH = EDIT_M3U_STORAGE_DIR . '/playlists.sqlite';
-const EDIT_M3U_MAX_SIZE = 15 * 1024 * 1024; // 15 MB
+const EDIT_M3U_MAX_SIZE = 200 * 1024 * 1024; // 15 MB
 
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
