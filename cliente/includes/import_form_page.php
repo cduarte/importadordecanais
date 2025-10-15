@@ -1204,9 +1204,8 @@ HTML
     </style>
 </head>
 <body>
+    <?php include __DIR__ . '/navigation_menu.php'; ?>
     <div class="container">
-        <?php include __DIR__ . '/navigation_menu.php'; ?>
-
         <header class="header">
             <h1><i class="fas fa-cloud-upload-alt"></i> Importador de <span class="hero-highlight"><?= htmlspecialchars($resource['upper_plural'], ENT_QUOTES, 'UTF-8'); ?></span></h1>
             <p><?= $heroDescriptionHtml; ?></p>
