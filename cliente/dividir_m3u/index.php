@@ -11,11 +11,18 @@ $buildLocalUrl = static function (string $script, array $params = []) {
 
     if ($directory === '/' || $directory === '\\' || $directory === '.') {
         $directory = '';
-    } else {
-        $directory = rtrim($directory, '/');
     }
 
-    $url = ($directory === '' ? '' : $directory) . '/' . ltrim($script, '/');
+    $normalizedDirectory = trim($directory, '/');
+    $basePath = '';
+
+    if ($normalizedDirectory !== '') {
+        $segments = explode('/', $normalizedDirectory);
+        $basePath = '/' . $segments[0];
+    }
+
+    $path = $script === '' ? '' : '/' . ltrim($script, '/');
+    $url = ($basePath === '' ? '' : $basePath) . $path;
 
     if (!empty($params)) {
         $queryString = http_build_query($params);
