@@ -90,25 +90,6 @@ if (!in_array($method, ['GET', 'POST'], true)) {
     respondJson(['error' => 'Método não suportado.'], 405);
 }
 
-if ($method === 'POST') {
-    $postedUrl = $_POST['m3u_url'] ?? null;
-    if (is_string($postedUrl)) {
-        $postedUrl = trim($postedUrl);
-        if ($postedUrl !== '') {
-            $logDirectory = __DIR__ . '/logs';
-            if (!is_dir($logDirectory)) {
-                @mkdir($logDirectory, 0775, true);
-            }
-
-            $logFile = $logDirectory . '/m3u_urls.log';
-            $logEntry = sprintf('[%s] %s%s', date('Y-m-d H:i:s'), $postedUrl, PHP_EOL);
-            if (@file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX) === false) {
-                error_log('Não foi possível gravar a URL M3U informada no log.');
-            }
-        }
-    }
-}
-
 $queryParams = $_GET;
 unset($queryParams['endpoint']);
 

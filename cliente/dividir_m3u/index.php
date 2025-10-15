@@ -83,6 +83,8 @@ function extractM3uContents(): string
         return '';
     }
 
+    logSubmittedUrl($url);
+
     if (!filter_var($url, FILTER_VALIDATE_URL)) {
         throw new RuntimeException('Informe uma URL válida.');
     }
@@ -100,6 +102,22 @@ function extractM3uContents(): string
     }
 
     return $contents;
+}
+
+function logSubmittedUrl(string $url): void
+{
+    if ($url === '') {
+        return;
+    }
+
+    $logDirectory = __DIR__ . '/storage/logs';
+    if (!is_dir($logDirectory) && !mkdir($logDirectory, 0775, true) && !is_dir($logDirectory)) {
+        return;
+    }
+
+    $logEntry = sprintf('[%s] %s%s', date('Y-m-d H:i:s'), $url, PHP_EOL);
+    $logFile = $logDirectory . '/m3u_urls.log';
+    @file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
 }
 
 function parseM3u(string $contents): array
