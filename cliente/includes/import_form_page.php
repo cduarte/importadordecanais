@@ -148,7 +148,7 @@ HTML
     $faqAnswers[] = [
         'question' => 'Minha conexão e meus dados ficam salvos no sistema?',
         'answer_html' => <<<HTML
-<p>Não. O Importador Automatizado processa todas as informações em tempo de execução, ou seja, nada é salvo nem armazenado após o uso.</p>
+<p>Não. O Separa M3U processa todas as informações em tempo de execução, ou seja, nada é salvo nem armazenado após o uso.</p>
 <p>Os dados informados (como IP, usuário, senha ou URL da fonte) não ficam guardados em nossos servidores — tudo é tratado em tempo real, garantindo privacidade e segurança total.</p>
 HTML
     ];
