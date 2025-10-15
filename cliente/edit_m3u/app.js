@@ -1,5 +1,7 @@
 (() => {
     const UNGROUPED_LABEL = 'Sem grupo';
+    const DEFAULT_PAGE_SIZE = 10;
+    const PAGINATION_KEYS = ['groups', 'selected', 'editAvailable', 'editSelected'];
 
     const state = {
         channels: [],
@@ -7,7 +9,13 @@
         search: '',
         activeGroup: null,
         fileName: null,
-        groupExclusions: new Map()
+        groupExclusions: new Map(),
+        pagination: {
+            groups: 1,
+            selected: 1,
+            editAvailable: 1,
+            editSelected: 1
+        }
     };
 
     const landingScreen = document.getElementById('landingScreen');
@@ -32,6 +40,8 @@
     const groupSearch = document.getElementById('groupSearch');
     const groupsList = document.getElementById('groupsList');
     const selectedGroupsList = document.getElementById('selectedGroupsList');
+    const groupsPagination = document.getElementById('groupsPagination');
+    const selectedPagination = document.getElementById('selectedPagination');
     const btnDownload = document.getElementById('btnDownload');
     const btnCopy = document.getElementById('btnCopy');
     const btnExportSelection = document.getElementById('btnExportSelection');
@@ -44,6 +54,8 @@
     const editModalSubtitle = document.getElementById('editModalSubtitle');
     const editAvailableList = document.getElementById('editAvailableList');
     const editSelectedList = document.getElementById('editSelectedList');
+    const editAvailablePagination = document.getElementById('editAvailablePagination');
+    const editSelectedPagination = document.getElementById('editSelectedPagination');
     const editAvailableCount = document.getElementById('editAvailableCount');
     const editSelectedCount = document.getElementById('editSelectedCount');
     const btnCloseEdit = document.getElementById('btnCloseEdit');
@@ -466,6 +478,7 @@
         state.selectedGroups.clear();
         state.groupExclusions.clear();
         state.activeGroup = null;
+        resetPagination();
         if (!editGroupModal.hidden) {
             closeEditModal();
         }
@@ -492,6 +505,113 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    }
+
+    function ensurePaginationState() {
+        if (!state.pagination) {
+            state.pagination = {};
+        }
+    }
+
+    function resetPagination(keys = PAGINATION_KEYS) {
+        ensurePaginationState();
+        const targets = Array.isArray(keys) && keys.length ? keys : PAGINATION_KEYS;
+        targets.forEach((key) => {
+            state.pagination[key] = 1;
+        });
+    }
+
+    function paginateCollection(items, key, pageSize = DEFAULT_PAGE_SIZE) {
+        ensurePaginationState();
+        const source = Array.isArray(items) ? items : [];
+        const totalItems = source.length;
+        const totalPages = totalItems ? Math.ceil(totalItems / pageSize) : 0;
+        let currentPage = Math.max(1, state.pagination[key] ?? 1);
+
+        if (totalPages > 0 && currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+
+        if (totalPages === 0) {
+            currentPage = 1;
+        }
+
+        state.pagination[key] = currentPage;
+
+        const startIndex = totalPages > 0 ? (currentPage - 1) * pageSize : 0;
+        const pageItems = totalPages > 0 ? source.slice(startIndex, startIndex + pageSize) : [];
+
+        return {
+            items: pageItems,
+            currentPage,
+            totalPages,
+            totalItems
+        };
+    }
+
+    function renderPaginationControls(container, { currentPage = 1, totalPages = 0, totalItems = 0 } = {}) {
+        if (!container) {
+            return;
+        }
+
+        if (!totalItems || totalPages <= 1) {
+            container.hidden = true;
+            container.innerHTML = '';
+            container.dataset.totalPages = '0';
+            container.dataset.currentPage = '1';
+            return;
+        }
+
+        container.hidden = false;
+        container.dataset.totalPages = String(totalPages);
+        container.dataset.currentPage = String(currentPage);
+        container.innerHTML = `
+            <button type="button" class="pagination-button" data-page-action="first" aria-label="Primeira página" title="Primeira página"${currentPage === 1 ? ' disabled' : ''}>&laquo;</button>
+            <button type="button" class="pagination-button" data-page-action="prev" aria-label="Página anterior" title="Página anterior"${currentPage === 1 ? ' disabled' : ''}>&lsaquo;</button>
+            <span class="pagination-info">Página ${currentPage} de ${totalPages}</span>
+            <button type="button" class="pagination-button" data-page-action="next" aria-label="Próxima página" title="Próxima página"${currentPage === totalPages ? ' disabled' : ''}>&rsaquo;</button>
+            <button type="button" class="pagination-button" data-page-action="last" aria-label="Última página" title="Última página"${currentPage === totalPages ? ' disabled' : ''}>&raquo;</button>
+        `;
+    }
+
+    function setupPagination(container, key) {
+        if (!container) {
+            return;
+        }
+
+        container.addEventListener('click', (event) => {
+            const button = event.target.closest('button[data-page-action]');
+            if (!button) {
+                return;
+            }
+
+            const totalPages = Number(container.dataset.totalPages || '0');
+            if (!totalPages) {
+                return;
+            }
+
+            const action = button.dataset.pageAction;
+            const current = Math.max(1, state.pagination?.[key] ?? 1);
+            let target = current;
+
+            if (action === 'first') {
+                target = 1;
+            } else if (action === 'prev') {
+                target = Math.max(1, current - 1);
+            } else if (action === 'next') {
+                target = Math.min(totalPages, current + 1);
+            } else if (action === 'last') {
+                target = totalPages;
+            } else {
+                return;
+            }
+
+            if (target !== current) {
+                ensurePaginationState();
+                state.pagination[key] = target;
+                render();
+            }
+        });
     }
 
     function getExclusionSet(groupName, create = true) {
@@ -589,10 +709,12 @@
 
         if (!filtered.length) {
             groupsList.innerHTML = '<p class="empty-state">Nenhum grupo encontrado para este filtro.</p>';
+            renderPaginationControls(groupsPagination, { currentPage: 1, totalPages: 0, totalItems: 0 });
             return;
         }
 
-        const items = filtered
+        const pagination = paginateCollection(filtered, 'groups');
+        const items = pagination.items
             .map((group) => {
                 const isActive = state.activeGroup === group.name;
                 const isSelected = state.selectedGroups.has(group.name);
@@ -616,22 +738,33 @@
             .join('');
 
         groupsList.innerHTML = items;
+        renderPaginationControls(groupsPagination, pagination);
     }
 
     function renderSelected(groups) {
         if (!state.selectedGroups.size) {
             selectedGroupsList.innerHTML = '<p class="empty-state">Escolha grupos à esquerda para incluí-los aqui.</p>';
+            renderPaginationControls(selectedPagination, { currentPage: 1, totalPages: 0, totalItems: 0 });
             return;
         }
 
         const lookup = new Map(groups.map((group) => [group.name, group]));
-        const items = Array.from(state.selectedGroups)
+        const ordered = Array.from(state.selectedGroups)
             .filter((name) => lookup.has(name))
-            .map((name) => {
-                const group = lookup.get(name);
-                const isActive = state.activeGroup === name;
+            .map((name) => lookup.get(name));
+
+        if (!ordered.length) {
+            selectedGroupsList.innerHTML = '<p class="empty-state">Escolha grupos à esquerda para incluí-los aqui.</p>';
+            renderPaginationControls(selectedPagination, { currentPage: 1, totalPages: 0, totalItems: 0 });
+            return;
+        }
+
+        const pagination = paginateCollection(ordered, 'selected');
+        const items = pagination.items
+            .map((group) => {
+                const isActive = state.activeGroup === group.name;
                 return `
-                    <article class="group-card${isActive ? ' active' : ''}" data-group="${escapeHtml(name)}">
+                    <article class="group-card${isActive ? ' active' : ''}" data-group="${escapeHtml(group.name)}">
                         <div class="group-info">
                             <div class="group-logo">${createGroupLogoMarkup(group)}</div>
                             <div class="group-meta">
@@ -640,8 +773,8 @@
                             </div>
                         </div>
                         <div class="group-actions">
-                            <button class="icon-button neutral" type="button" data-role="edit-group" data-group="${escapeHtml(name)}">Editar</button>
-                            <button class="icon-button danger" type="button" data-role="remove-selection" data-group="${escapeHtml(name)}">Remover</button>
+                            <button class="icon-button neutral" type="button" data-role="edit-group" data-group="${escapeHtml(group.name)}">Editar</button>
+                            <button class="icon-button danger" type="button" data-role="remove-selection" data-group="${escapeHtml(group.name)}">Remover</button>
                         </div>
                     </article>
                 `;
@@ -649,6 +782,7 @@
             .join('');
 
         selectedGroupsList.innerHTML = items;
+        renderPaginationControls(selectedPagination, pagination);
     }
 
     function updateExportPreview() {
@@ -707,18 +841,25 @@
         editSelectedCount.textContent = String(selected.length);
         editAvailableCount.textContent = String(available.length);
 
-        editSelectedList.innerHTML = selected.length
-            ? selected.map((channel) => createDualItem(channel, 'remove-channel')).join('')
+        const selectedPagination = paginateCollection(selected, 'editSelected');
+        const availablePagination = paginateCollection(available, 'editAvailable');
+
+        editSelectedList.innerHTML = selectedPagination.totalItems
+            ? selectedPagination.items.map((channel) => createDualItem(channel, 'remove-channel')).join('')
             : '<p class="empty-state small">Nenhum canal selecionado para exportação.</p>';
 
-        editAvailableList.innerHTML = available.length
-            ? available.map((channel) => createDualItem(channel, 'restore-channel')).join('')
+        editAvailableList.innerHTML = availablePagination.totalItems
+            ? availablePagination.items.map((channel) => createDualItem(channel, 'restore-channel')).join('')
             : '<p class="empty-state small">Nenhum canal disponível para este grupo.</p>';
+
+        renderPaginationControls(editSelectedPagination, selectedPagination);
+        renderPaginationControls(editAvailablePagination, availablePagination);
     }
 
     function openEditModal(groupName) {
         editingGroup = groupName;
         editGroupModal.hidden = false;
+        resetPagination(['editAvailable', 'editSelected']);
         renderEditModal();
     }
 
@@ -1047,8 +1188,14 @@
 
     groupSearch.addEventListener('input', (event) => {
         state.search = event.target.value;
+        resetPagination(['groups']);
         render();
     });
+
+    setupPagination(groupsPagination, 'groups');
+    setupPagination(selectedPagination, 'selected');
+    setupPagination(editAvailablePagination, 'editAvailable');
+    setupPagination(editSelectedPagination, 'editSelected');
 
     groupsList.addEventListener('click', (event) => {
         const toggleButton = event.target.closest('[data-role="toggle-selection"]');
@@ -1161,6 +1308,7 @@
         state.fileName = null;
         updateFileLabel(null);
         fileInput.value = '';
+        resetPagination();
         render();
     });
 
