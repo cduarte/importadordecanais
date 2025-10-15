@@ -289,41 +289,43 @@ HTML
         .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 2rem 1rem;
+            padding: 1.5rem 1rem 2rem;
         }
 
         .nav-container {
             position: relative;
-            margin-bottom: 2rem;
+            margin: 0 auto 1.5rem;
         }
 
         .nav-bar {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 1rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: 0.75rem 1rem;
-            box-shadow: var(--shadow-md);
+            gap: 0.75rem;
+            background: rgba(20, 30, 49, 0.85);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: var(--radius-md);
+            padding: 0.5rem 0.75rem;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.25);
+            backdrop-filter: blur(8px);
         }
 
         .nav-title {
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 600;
             color: var(--text-primary);
+            letter-spacing: 0.01em;
         }
 
         .nav-toggle {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 50%;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 999px;
             border: none;
-            background: transparent;
+            background: rgba(59, 130, 246, 0.12);
             color: var(--text-primary);
             cursor: pointer;
             transition: background 0.2s ease, color 0.2s ease;
@@ -331,7 +333,7 @@ HTML
 
         .nav-toggle:hover,
         .nav-toggle:focus-visible {
-            background: rgba(59, 130, 246, 0.15);
+            background: rgba(59, 130, 246, 0.2);
             color: var(--primary-color);
             outline: none;
         }
@@ -356,22 +358,23 @@ HTML
         .navigation {
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
+            gap: 0.65rem;
         }
 
         .nav-drawer {
             position: fixed;
             inset: 0 auto 0 0;
             height: 100vh;
-            width: min(280px, 80%);
-            padding: 1.5rem 1.25rem;
-            background: var(--bg-secondary);
-            border-right: 1px solid var(--border-color);
-            box-shadow: var(--shadow-xl);
+            width: min(260px, 78%);
+            padding: 1.25rem 1rem;
+            background: rgba(13, 22, 38, 0.95);
+            border-right: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: 0 20px 45px rgba(8, 11, 23, 0.45);
             transform: translateX(-100%);
             transition: transform 0.3s ease;
             z-index: 1001;
             overflow-y: auto;
+            backdrop-filter: blur(10px);
         }
 
         .nav-drawer.open {
@@ -382,15 +385,15 @@ HTML
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 1rem 1.25rem;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
+            padding: 0.75rem 1rem;
+            background: rgba(21, 32, 52, 0.65);
+            border: 1px solid rgba(148, 163, 184, 0.2);
             border-radius: var(--radius-md);
             color: var(--text-secondary);
             text-decoration: none;
             font-weight: 500;
             transition: all 0.2s ease;
-            box-shadow: var(--shadow-sm);
+            box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25);
             width: 100%;
         }
 
@@ -400,21 +403,21 @@ HTML
 
         .nav-link:hover {
             color: var(--primary-hover);
-            background: var(--primary-light);
-            border-color: var(--primary-hover);
+            background: rgba(37, 99, 235, 0.12);
+            border-color: rgba(59, 130, 246, 0.4);
         }
 
         .nav-link.active {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9));
             color: #fff;
             border-color: transparent;
-            box-shadow: var(--shadow-lg);
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.35);
         }
 
         .nav-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(15, 23, 42, 0.65);
+            background: rgba(11, 17, 32, 0.45);
             opacity: 0;
             transition: opacity 0.3s ease;
             pointer-events: none;
