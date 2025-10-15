@@ -98,7 +98,13 @@ if ($curl === false) {
     respondJson(['error' => 'Falha ao iniciar o proxy de requisição.'], 500);
 }
 
-curl_setopt($curl, CURLOPT_URL, $targetUrl);
+$targetUrlWithQuery = $targetUrl;
+if (!empty($queryParams)) {
+    $separator = str_contains($targetUrlWithQuery, '?') ? '&' : '?';
+    $targetUrlWithQuery .= $separator . http_build_query($queryParams);
+}
+
+curl_setopt($curl, CURLOPT_URL, $targetUrlWithQuery);
 curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
 curl_setopt($curl, CURLOPT_TIMEOUT, 600);
@@ -110,11 +116,6 @@ if (!empty($_SERVER['HTTP_ACCEPT'])) {
 }
 
 if ($method === 'GET') {
-    if (!empty($queryParams)) {
-        $separator = strpos($targetUrl, '?') !== false ? '&' : '?';
-        $targetUrl .= $separator . http_build_query($queryParams);
-        curl_setopt($curl, CURLOPT_URL, $targetUrl);
-    }
     curl_setopt($curl, CURLOPT_HTTPGET, true);
 } else {
     curl_setopt($curl, CURLOPT_POST, true);
