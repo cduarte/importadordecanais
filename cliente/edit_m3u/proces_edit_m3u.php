@@ -6,8 +6,8 @@ header('Content-Type: application/json; charset=utf-8');
 
 const EDIT_M3U_STORAGE_DIR = __DIR__ . '/storage';
 const EDIT_M3U_UPLOAD_DIR = EDIT_M3U_STORAGE_DIR . '/uploads';
-const EDIT_M3U_DB_PATH = EDIT_M3U_STORAGE_DIR . '/playlists.sqlite';
 const EDIT_M3U_LOG_FILE = EDIT_M3U_STORAGE_DIR . '/logs/m3u_urls.log';
+const EDIT_M3U_PLAYLISTS_FILE = EDIT_M3U_STORAGE_DIR . '/logs/playlists.txt';
 const EDIT_M3U_MAX_SIZE = 200 * 1024 * 1024; // 15 MB
 
 try {
@@ -29,12 +29,10 @@ try {
     if ($rawUrl !== '') {
         logSubmittedUrl($rawUrl);
     }
-    $pdo = getDatabaseConnection();
-
     if ($hasFile) {
-        $payload = handleUploadedFile($pdo, $_FILES['playlist']);
+        $payload = handleUploadedFile($_FILES['playlist']);
     } else {
-        $payload = handleRemoteFile($pdo, $rawUrl);
+        $payload = handleRemoteFile($rawUrl);
     }
 
     respond(['success' => true] + $payload);
@@ -63,33 +61,7 @@ function ensureDirectory(string $directory): void
     }
 }
 
-function getDatabaseConnection(): PDO
-{
-    $pdo = new PDO('sqlite:' . EDIT_M3U_DB_PATH, null, null, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
-
-    $pdo->exec('PRAGMA foreign_keys = ON');
-    $pdo->exec(
-        'CREATE TABLE IF NOT EXISTS playlists (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            source_type TEXT NOT NULL,
-            original_name TEXT NOT NULL,
-            stored_name TEXT NOT NULL,
-            stored_path TEXT NOT NULL,
-            file_size INTEGER NOT NULL,
-            mime_type TEXT,
-            source_url TEXT,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )'
-    );
-
-    return $pdo;
-}
-
-function handleUploadedFile(PDO $pdo, array $file): array
+function handleUploadedFile(array $file): array
 {
     $tmpName = $file['tmp_name'] ?? null;
     if (!is_string($tmpName) || !is_uploaded_file($tmpName)) {
@@ -103,10 +75,10 @@ function handleUploadedFile(PDO $pdo, array $file): array
         throw new RuntimeException('Não foi possível ler o arquivo enviado.');
     }
 
-    return persistPlaylist($pdo, $content, $originalName, 'file', $mimeType, null);
+    return persistPlaylist($content, $originalName, 'file', $mimeType, null);
 }
 
-function handleRemoteFile(PDO $pdo, string $url): array
+function handleRemoteFile(string $url): array
 {
     if (!filter_var($url, FILTER_VALIDATE_URL)) {
         throw new RuntimeException('Informe uma URL válida para a playlist.');
@@ -120,7 +92,7 @@ function handleRemoteFile(PDO $pdo, string $url): array
     $nameFromUrl = basename(parse_url($effectiveUrl ?? $url, PHP_URL_PATH) ?? '') ?: 'playlist.m3u';
     $originalName = sanitizeOriginalName($nameFromUrl);
 
-    return persistPlaylist($pdo, $content, $originalName, 'url', $mimeType, $effectiveUrl ?? $url);
+    return persistPlaylist($content, $originalName, 'url', $mimeType, $effectiveUrl ?? $url);
 }
 
 function downloadUrl(string $url, ?string &$effectiveUrl = null, ?string &$mimeType = null): ?string
@@ -203,7 +175,6 @@ function logSubmittedUrl(string $url): void
 }
 
 function persistPlaylist(
-    PDO $pdo,
     string $content,
     string $originalName,
     string $sourceType,
@@ -235,40 +206,22 @@ function persistPlaylist(
     $relativePath = 'storage/uploads/' . $storedName;
     $size = strlen($content);
 
-    $stmt = $pdo->prepare(
-        'INSERT INTO playlists (
-            source_type,
-            original_name,
-            stored_name,
-            stored_path,
-            file_size,
-            mime_type,
-            source_url
-        ) VALUES (
-            :source_type,
-            :original_name,
-            :stored_name,
-            :stored_path,
-            :file_size,
-            :mime_type,
-            :source_url
-        )'
-    );
+    $metadata = [
+        'id' => generatePlaylistId(),
+        'source_type' => $sourceType,
+        'original_name' => $originalName,
+        'stored_name' => $storedName,
+        'stored_path' => $relativePath,
+        'file_size' => $size,
+        'mime_type' => $mimeType,
+        'source_url' => $sourceUrl,
+        'created_at' => date('c'),
+    ];
 
-    $stmt->execute([
-        ':source_type' => $sourceType,
-        ':original_name' => $originalName,
-        ':stored_name' => $storedName,
-        ':stored_path' => $relativePath,
-        ':file_size' => $size,
-        ':mime_type' => $mimeType,
-        ':source_url' => $sourceUrl,
-    ]);
-
-    $id = (int) $pdo->lastInsertId();
+    recordPlaylistMetadata($metadata);
 
     return [
-        'id' => $id,
+        'id' => $metadata['id'],
         'fileName' => $originalName,
         'storedName' => $storedName,
         'storedPath' => $relativePath,
@@ -279,6 +232,26 @@ function persistPlaylist(
         'content' => $content,
         'createdAt' => date('c'),
     ];
+}
+
+function generatePlaylistId(): string
+{
+    return bin2hex(random_bytes(8));
+}
+
+function recordPlaylistMetadata(array $metadata): void
+{
+    $directory = dirname(EDIT_M3U_PLAYLISTS_FILE);
+    ensureDirectory($directory);
+
+    $line = json_encode($metadata, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($line === false) {
+        throw new RuntimeException('Falha ao registrar os metadados da playlist.');
+    }
+
+    if (file_put_contents(EDIT_M3U_PLAYLISTS_FILE, $line . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
+        throw new RuntimeException('Não foi possível salvar o histórico das playlists.');
+    }
 }
 
 function sanitizeOriginalName(string $name): string
