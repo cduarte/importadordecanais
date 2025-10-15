@@ -190,7 +190,7 @@ $currentNavKey = 'edit_m3u';
                     </ol>
                 </section>
 
-                <section class="card preview-panel">
+                <section class="card preview-panel" style="display: none;">
                     <header class="preview-header">
                         <div>
                             <h3>Pré-visualização</h3>
