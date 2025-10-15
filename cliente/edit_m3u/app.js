@@ -6,7 +6,8 @@
         selectedGroups: new Set(),
         search: '',
         activeGroup: null,
-        fileName: null
+        fileName: null,
+        groupExclusions: new Map()
     };
 
     const fileInput = document.getElementById('fileInput');
@@ -29,8 +30,18 @@
     const exportPreview = document.getElementById('exportPreview');
     const groupsCountLabel = document.getElementById('groupsCount');
     const selectedCountLabel = document.getElementById('selectedCount');
+    const editGroupModal = document.getElementById('editGroupModal');
+    const editModalTitle = document.getElementById('editModalTitle');
+    const editModalSubtitle = document.getElementById('editModalSubtitle');
+    const editAvailableList = document.getElementById('editAvailableList');
+    const editSelectedList = document.getElementById('editSelectedList');
+    const editAvailableCount = document.getElementById('editAvailableCount');
+    const editSelectedCount = document.getElementById('editSelectedCount');
+    const btnCloseEdit = document.getElementById('btnCloseEdit');
 
     const knownAttributes = ['tvg-id', 'tvg-name', 'tvg-logo', 'group-title'];
+
+    let editingGroup = null;
 
     function normalizeGroup(name) {
         const trimmed = (name ?? '').trim();
@@ -141,27 +152,49 @@
         });
 
         return Array.from(groups.entries())
-            .map(([name, items]) => ({
-                name,
-                label: name,
-                size: items.length,
-                sample: items.slice(0, 3).map((item) => item.name || item.tvgName || 'Canal sem nome')
-            }))
+            .map(([name, items]) => {
+                const exclusions = state.groupExclusions.get(name);
+                const available = exclusions
+                    ? items.filter((item) => !exclusions.has(item.uid))
+                    : items.slice();
+                const sampleSource = available.length ? available : items;
+                const logoSource = sampleSource.find((item) => item.logo) || items.find((item) => item.logo);
+
+                return {
+                    name,
+                    label: name,
+                    size: available.length,
+                    total: items.length,
+                    sample: sampleSource.slice(0, 3).map((item) => item.name || item.tvgName || 'Canal sem nome'),
+                    logo: logoSource?.logo || '',
+                    allRemoved: available.length === 0 && items.length > 0
+                };
+            })
             .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }));
     }
 
     function getExportableChannels() {
-        if (state.selectedGroups.size) {
-            return state.channels.filter((channel) => state.selectedGroups.has(normalizeGroup(channel.group)));
-        }
-        return state.channels;
+        return state.channels.filter((channel) => {
+            const groupName = normalizeGroup(channel.group);
+            if (state.selectedGroups.size && !state.selectedGroups.has(groupName)) {
+                return false;
+            }
+            const exclusions = state.groupExclusions.get(groupName);
+            return !(exclusions && exclusions.has(channel.uid));
+        });
     }
 
     function getChannelsForActiveGroup() {
         if (!state.activeGroup) {
             return [];
         }
-        return state.channels.filter((channel) => normalizeGroup(channel.group) === state.activeGroup);
+        const exclusions = state.groupExclusions.get(state.activeGroup);
+        return state.channels.filter((channel) => {
+            if (normalizeGroup(channel.group) !== state.activeGroup) {
+                return false;
+            }
+            return !(exclusions && exclusions.has(channel.uid));
+        });
     }
 
     function ensureActiveGroup(groups) {
@@ -194,7 +227,11 @@
             extras: Array.isArray(channel.extras) ? channel.extras : []
         }));
         state.selectedGroups.clear();
+        state.groupExclusions.clear();
         state.activeGroup = null;
+        if (!editGroupModal.hidden) {
+            closeEditModal();
+        }
         render();
     }
 
@@ -220,6 +257,101 @@
             .replace(/'/g, '&#39;');
     }
 
+    function getExclusionSet(groupName, create = true) {
+        if (!state.groupExclusions.has(groupName)) {
+            if (!create) {
+                return null;
+            }
+            state.groupExclusions.set(groupName, new Set());
+        }
+        return state.groupExclusions.get(groupName) || null;
+    }
+
+    function removeChannelFromExclusions(uid) {
+        state.groupExclusions.forEach((set, groupName) => {
+            if (set.delete(uid) && set.size === 0) {
+                state.groupExclusions.delete(groupName);
+            }
+        });
+    }
+
+    function pruneMissingSelections(groups) {
+        const validNames = new Set(groups.map((group) => group.name));
+        let changed = false;
+
+        state.selectedGroups.forEach((name) => {
+            if (!validNames.has(name)) {
+                state.selectedGroups.delete(name);
+                state.groupExclusions.delete(name);
+                if (state.activeGroup === name) {
+                    state.activeGroup = null;
+                }
+                changed = true;
+            }
+        });
+
+        Array.from(state.groupExclusions.keys()).forEach((name) => {
+            if (!validNames.has(name)) {
+                state.groupExclusions.delete(name);
+                changed = true;
+            }
+        });
+
+        return changed;
+    }
+
+    function createGroupLogoMarkup(group) {
+        if (group.logo) {
+            return `<img src="${escapeHtml(group.logo)}" alt="Logo de ${escapeHtml(group.label)}">`;
+        }
+        const initial = (group.label || '').trim().charAt(0).toUpperCase() || '#';
+        return `<span>${escapeHtml(initial)}</span>`;
+    }
+
+    function createGroupSubtitle(group) {
+        const baseLabel = group.total !== group.size
+            ? `${group.size} de ${group.total} canal${group.total === 1 ? '' : 's'}`
+            : `${group.size} canal${group.size === 1 ? '' : 's'}`;
+        const descriptor = escapeHtml(baseLabel);
+
+        if (group.allRemoved) {
+            return `${descriptor} • todos os canais removidos`;
+        }
+
+        const sample = group.sample.filter(Boolean).map(escapeHtml).join(' • ');
+        return sample ? `${descriptor} • ${sample}` : descriptor;
+    }
+
+    function createChannelThumb(channel) {
+        if (channel.logo) {
+            return `<img src="${escapeHtml(channel.logo)}" alt="Logo de ${escapeHtml(channel.name || channel.tvgName || 'Canal')}">`;
+        }
+        const label = channel.name || channel.tvgName || 'Canal';
+        const initial = label.trim().charAt(0).toUpperCase() || '#';
+        return `<span>${escapeHtml(initial)}</span>`;
+    }
+
+    function createDualItem(channel, action) {
+        const label = channel.name || channel.tvgName || 'Canal sem nome';
+        const subtitleRaw = channel.tvgId ? `ID: ${channel.tvgId}` : channel.url || '';
+        const subtitle = subtitleRaw ? `<small title="${escapeHtml(subtitleRaw)}">${escapeHtml(subtitleRaw)}</small>` : '';
+        const buttonLabel = action === 'remove-channel' ? 'Remover' : 'Adicionar';
+        const buttonClass = action === 'remove-channel' ? 'icon-button danger' : 'icon-button';
+
+        return `
+            <article class="dual-item" data-uid="${escapeHtml(channel.uid)}">
+                <div class="dual-info">
+                    <div class="channel-thumb">${createChannelThumb(channel)}</div>
+                    <div>
+                        <strong title="${escapeHtml(label)}">${escapeHtml(label)}</strong>
+                        ${subtitle}
+                    </div>
+                </div>
+                <button type="button" class="${buttonClass}" data-action="${action}" data-uid="${escapeHtml(channel.uid)}">${buttonLabel}</button>
+            </article>
+        `;
+    }
+
     function renderGroups(groups) {
         const filtered = groups.filter((group) => {
             if (!state.search) return true;
@@ -235,14 +367,16 @@
             .map((group) => {
                 const isActive = state.activeGroup === group.name;
                 const isSelected = state.selectedGroups.has(group.name);
-                const sample = group.sample.filter(Boolean).map(escapeHtml).join(' • ');
                 const buttonLabel = isSelected ? 'Remover' : 'Adicionar';
                 const buttonClass = isSelected ? 'icon-button danger' : 'icon-button';
                 return `
                     <article class="group-card${isActive ? ' active' : ''}${isSelected ? ' is-selected' : ''}" data-group="${escapeHtml(group.name)}">
-                        <div class="group-meta">
-                            <h4>${escapeHtml(group.label)}</h4>
-                            <small>${group.size} canal${group.size === 1 ? '' : 's'}${sample ? ' • ' + sample : ''}</small>
+                        <div class="group-info">
+                            <div class="group-logo">${createGroupLogoMarkup(group)}</div>
+                            <div class="group-meta">
+                                <h4>${escapeHtml(group.label)}</h4>
+                                <small>${createGroupSubtitle(group)}</small>
+                            </div>
                         </div>
                         <div class="group-actions">
                             <button class="${buttonClass}" type="button" data-role="toggle-selection" data-group="${escapeHtml(group.name)}">${buttonLabel}</button>
@@ -267,14 +401,17 @@
             .map((name) => {
                 const group = lookup.get(name);
                 const isActive = state.activeGroup === name;
-                const sample = group.sample.filter(Boolean).map(escapeHtml).join(' • ');
                 return `
                     <article class="group-card${isActive ? ' active' : ''}" data-group="${escapeHtml(name)}">
-                        <div class="group-meta">
-                            <h4>${escapeHtml(group.label)}</h4>
-                            <small>${group.size} canal${group.size === 1 ? '' : 's'}${sample ? ' • ' + sample : ''}</small>
+                        <div class="group-info">
+                            <div class="group-logo">${createGroupLogoMarkup(group)}</div>
+                            <div class="group-meta">
+                                <h4>${escapeHtml(group.label)}</h4>
+                                <small>${createGroupSubtitle(group)}</small>
+                            </div>
                         </div>
                         <div class="group-actions">
+                            <button class="icon-button neutral" type="button" data-role="edit-group" data-group="${escapeHtml(name)}">Editar</button>
                             <button class="icon-button danger" type="button" data-role="remove-selection" data-group="${escapeHtml(name)}">Remover</button>
                         </div>
                     </article>
@@ -301,13 +438,35 @@
         }
 
         const channels = getChannelsForActiveGroup();
-        channelsTitle.textContent = `${state.activeGroup} • ${channels.length} canal${channels.length === 1 ? '' : 's'}`;
-        channelsSubtitle.textContent = state.selectedGroups.size
-            ? 'Apenas os grupos selecionados serão exportados.'
-            : 'Selecione grupos para exportar apenas o que desejar.';
+        const normalizedGroup = state.activeGroup;
+        const allGroupChannels = state.channels.filter((channel) => normalizeGroup(channel.group) === normalizedGroup);
+        const totalInGroup = allGroupChannels.length;
+        const removedCount = totalInGroup - channels.length;
+        const titleCount = totalInGroup
+            ? (removedCount === 0
+                ? `${channels.length} canal${channels.length === 1 ? '' : 's'}`
+                : `${channels.length} de ${totalInGroup} canal${totalInGroup === 1 ? '' : 's'}`)
+            : '0 canais';
+
+        channelsTitle.textContent = `${state.activeGroup} • ${titleCount}`;
+
+        const subtitleParts = [
+            state.selectedGroups.size
+                ? 'Apenas os grupos selecionados serão exportados.'
+                : 'Selecione grupos para exportar apenas o que desejar.'
+        ];
+
+        if (removedCount > 0) {
+            subtitleParts.push(`${removedCount} canal${removedCount === 1 ? '' : 's'} removido${removedCount === 1 ? '' : 's'} desta seleção.`);
+        }
+
+        channelsSubtitle.textContent = subtitleParts.join(' • ');
 
         if (!channels.length) {
-            channelsTable.innerHTML = '<p class="empty-state">Nenhum canal neste grupo.</p>';
+            const message = removedCount > 0
+                ? 'Todos os canais deste grupo foram removidos da seleção. Use o botão "Editar" para restaurá-los.'
+                : 'Nenhum canal neste grupo.';
+            channelsTable.innerHTML = `<p class="empty-state">${message}</p>`;
             return;
         }
 
@@ -367,6 +526,7 @@
 
     function render() {
         const groups = computeGroups();
+        pruneMissingSelections(groups);
         ensureActiveGroup(groups);
         renderGroups(groups);
         renderSelected(groups);
@@ -374,6 +534,81 @@
         updateCounts(groups);
         updateExportPreview();
         updateActionsState();
+        if (editingGroup && !state.selectedGroups.has(editingGroup)) {
+            closeEditModal();
+        } else if (editingGroup && !editGroupModal.hidden) {
+            renderEditModal();
+        }
+    }
+
+    function renderEditModal() {
+        if (!editingGroup) {
+            return;
+        }
+
+        const normalized = editingGroup;
+        const channels = state.channels.filter((channel) => normalizeGroup(channel.group) === normalized);
+        const exclusions = getExclusionSet(normalized, false);
+        const excludedSet = exclusions ?? new Set();
+        const selected = channels.filter((channel) => !excludedSet.has(channel.uid));
+        const available = channels.filter((channel) => excludedSet.has(channel.uid));
+
+        const displayName = channels.find((channel) => (channel.group || '').trim())?.group?.trim() || normalized;
+        editModalTitle.textContent = `Editar grupo: ${displayName}`;
+        editModalSubtitle.textContent = channels.length
+            ? `${selected.length} de ${channels.length} canais serão exportados.`
+            : 'Este grupo não possui canais.';
+
+        editSelectedCount.textContent = String(selected.length);
+        editAvailableCount.textContent = String(available.length);
+
+        editSelectedList.innerHTML = selected.length
+            ? selected.map((channel) => createDualItem(channel, 'remove-channel')).join('')
+            : '<p class="empty-state small">Nenhum canal selecionado para exportação.</p>';
+
+        editAvailableList.innerHTML = available.length
+            ? available.map((channel) => createDualItem(channel, 'restore-channel')).join('')
+            : '<p class="empty-state small">Nenhum canal disponível para este grupo.</p>';
+    }
+
+    function openEditModal(groupName) {
+        editingGroup = groupName;
+        editGroupModal.hidden = false;
+        renderEditModal();
+    }
+
+    function closeEditModal() {
+        editingGroup = null;
+        editGroupModal.hidden = true;
+    }
+
+    function handleEditListAction(event) {
+        const button = event.target.closest('button[data-action][data-uid]');
+        if (!button || !editingGroup) {
+            return;
+        }
+
+        const { action, uid } = button.dataset;
+        if (!uid || !action) {
+            return;
+        }
+
+        if (action === 'remove-channel') {
+            const exclusions = getExclusionSet(editingGroup, true);
+            exclusions?.add(uid);
+        } else if (action === 'restore-channel') {
+            const exclusions = getExclusionSet(editingGroup, false);
+            if (exclusions) {
+                exclusions.delete(uid);
+                if (!exclusions.size) {
+                    state.groupExclusions.delete(editingGroup);
+                }
+            }
+        } else {
+            return;
+        }
+
+        render();
     }
 
     function moveChannel(uid, direction) {
@@ -388,6 +623,7 @@
 
     function removeChannel(uid) {
         state.channels = state.channels.filter((channel) => channel.uid !== uid);
+        removeChannelFromExclusions(uid);
         render();
     }
 
@@ -426,30 +662,36 @@
         reader.readAsText(file);
     }
 
-    function openModal() {
+    function openPasteModal() {
         pasteModal.hidden = false;
         requestAnimationFrame(() => {
             m3uText.focus();
         });
     }
 
-    function closeModal() {
+    function closePasteModal() {
         pasteModal.hidden = true;
         m3uText.value = '';
     }
 
-    btnOpenPaste.addEventListener('click', openModal);
-    btnCloseModal.addEventListener('click', closeModal);
+    btnOpenPaste.addEventListener('click', openPasteModal);
+    btnCloseModal.addEventListener('click', closePasteModal);
 
     pasteModal.addEventListener('click', (event) => {
         if (event.target === pasteModal) {
-            closeModal();
+            closePasteModal();
         }
     });
 
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !pasteModal.hidden) {
-            closeModal();
+        if (event.key === 'Escape') {
+            if (!editGroupModal.hidden) {
+                closeEditModal();
+                return;
+            }
+            if (!pasteModal.hidden) {
+                closePasteModal();
+            }
         }
     });
 
@@ -468,12 +710,25 @@
             state.fileName = 'playlist.m3u';
             updateFileLabel('Conteúdo colado');
             setChannels(channels);
-            closeModal();
+            closePasteModal();
         } catch (error) {
             console.error(error);
             alert('Ocorreu um erro ao interpretar o conteúdo informado.');
         }
     });
+
+    btnCloseEdit.addEventListener('click', () => {
+        closeEditModal();
+    });
+
+    editGroupModal.addEventListener('click', (event) => {
+        if (event.target === editGroupModal) {
+            closeEditModal();
+        }
+    });
+
+    editSelectedList.addEventListener('click', handleEditListAction);
+    editAvailableList.addEventListener('click', handleEditListAction);
 
     fileInput.addEventListener('change', () => {
         if (fileInput.files?.length) {
@@ -495,10 +750,12 @@
             if (!groupName) return;
             if (state.selectedGroups.has(groupName)) {
                 state.selectedGroups.delete(groupName);
+                state.groupExclusions.delete(groupName);
+                if (state.activeGroup === groupName) {
+                    state.activeGroup = null;
+                }
             } else {
                 state.selectedGroups.add(groupName);
-            }
-            if (!state.selectedGroups.size) {
                 state.activeGroup = groupName;
             }
             render();
@@ -519,10 +776,21 @@
             const groupName = removeButton.dataset.group;
             if (!groupName) return;
             state.selectedGroups.delete(groupName);
+            state.groupExclusions.delete(groupName);
             if (state.activeGroup === groupName) {
                 state.activeGroup = null;
             }
             render();
+            return;
+        }
+
+        const editButton = event.target.closest('[data-role="edit-group"]');
+        if (editButton) {
+            const groupName = editButton.dataset.group;
+            if (!groupName) return;
+            state.activeGroup = groupName;
+            render();
+            openEditModal(groupName);
             return;
         }
 
@@ -545,9 +813,19 @@
         if (!uid) return;
         const channel = state.channels.find((item) => item.uid === uid);
         if (!channel) return;
+        let previousGroupName = null;
+        if (field === 'group') {
+            previousGroupName = normalizeGroup(channel.group);
+        }
         channel[field] = input.value;
         if (field === 'name') {
             channel.tvgName = input.value;
+        }
+        if (field === 'group') {
+            const newGroupName = normalizeGroup(channel.group);
+            if (previousGroupName && previousGroupName !== newGroupName) {
+                removeChannelFromExclusions(channel.uid);
+            }
         }
         render();
     });

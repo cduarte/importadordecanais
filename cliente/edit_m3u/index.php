@@ -119,6 +119,32 @@ http://exemplo.com/stream"></textarea>
         </div>
     </div>
 
+    <div class="modal" id="editGroupModal" hidden>
+        <div class="modal-card modal-large">
+            <header>
+                <h2 id="editModalTitle">Editar grupo</h2>
+                <p id="editModalSubtitle">Gerencie os canais que fazem parte desta categoria.</p>
+            </header>
+            <div class="dual-lists">
+                <section class="dual-column">
+                    <h3>Canais disponíveis <span id="editAvailableCount">0</span></h3>
+                    <div class="dual-list" id="editAvailableList">
+                        <p class="empty-state small">Nenhum canal disponível para este grupo.</p>
+                    </div>
+                </section>
+                <section class="dual-column">
+                    <h3>Canais selecionados <span id="editSelectedCount">0</span></h3>
+                    <div class="dual-list" id="editSelectedList">
+                        <p class="empty-state small">Nenhum canal selecionado para exportação.</p>
+                    </div>
+                </section>
+            </div>
+            <footer class="modal-actions">
+                <button id="btnCloseEdit" class="primary-button">Concluir edição</button>
+            </footer>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
