@@ -50,9 +50,6 @@ $currentNavKey = 'edit_m3u';
     <?php include __DIR__ . '/../includes/navigation_menu.php'; ?>
     <div class="app-shell">
         <section class="landing" id="landingScreen">
-            <header class="landing-topbar">
-                <div class="landing-brand">M3U<span>EDIT</span></div>
-            </header>
 
             <div class="landing-hero">
                 <p class="landing-subtitle">Seus canais, do seu jeito</p>

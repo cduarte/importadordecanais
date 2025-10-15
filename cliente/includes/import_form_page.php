@@ -218,13 +218,9 @@ HTML
         }
     }
 
-    $pageTitle = 'Importador M3U para XUI.ONE';
     $heroHighlight = htmlspecialchars($resource['upper_plural'], ENT_QUOTES, 'UTF-8');
-    $heroDescriptionHtml = sprintf(
-        'Sistema profissional para importação de Fonte de <span class="hero-highlight">%s</span> diretamente para o <strong>XUI.ONE</strong>, com categorização automática.',
-        $heroHighlight
-    );
-
+    $pageTitle = sprintf('Importador de %s', $heroHighlight);
+    $heroDescriptionHtml = 'diretamente para o XUI.ONE, com categorização automática.';
     $hostValue = htmlspecialchars($host, ENT_QUOTES, 'UTF-8');
     $dbnameValue = htmlspecialchars($dbname, ENT_QUOTES, 'UTF-8');
     $usernameValue = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
@@ -556,12 +552,14 @@ HTML
         .hero-highlight {
             display: inline-flex;
             align-items: center;
-            padding: 0.15rem 0.5rem;
-            border-radius: var(--radius-sm);
-            background: rgba(250, 204, 21, 0.18);
-            color: #facc15;
-            font-weight: 600;
-            letter-spacing: 0.02em;
+            padding: 0.2rem 0.75rem;
+            border-radius: 999px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.24), rgba(30, 64, 175, 0.18));
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: var(--primary-light);
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.4);
         }
 
         .main-card {
@@ -1210,7 +1208,7 @@ HTML
         <?php include __DIR__ . '/navigation_menu.php'; ?>
 
         <header class="header">
-            <h1><i class="fas fa-cloud-upload-alt"></i> Importador M3U</h1>
+            <h1><i class="fas fa-cloud-upload-alt"></i> Importador de <span class="hero-highlight"><?= htmlspecialchars($resource['upper_plural'], ENT_QUOTES, 'UTF-8'); ?></span></h1>
             <p><?= $heroDescriptionHtml; ?></p>
         </header>
 

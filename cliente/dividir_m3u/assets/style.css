@@ -1,14 +1,26 @@
 :root {
-    color-scheme: light dark;
-    --bg-color: #0f172a;
-    --card-bg: rgba(15, 23, 42, 0.85);
-    --accent: #38bdf8;
-    --accent-strong: #0ea5e9;
-    --border: rgba(148, 163, 184, 0.2);
+    color-scheme: dark;
+    font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --bg: #050816;
+    --bg-color: var(--bg);
+    --surface: #0f1629;
+    --surface-elevated: #151f36;
+    --surface-highlight: #1d2b4d;
+    --card-bg: var(--surface);
+    --primary: #3b82f6;
+    --primary-strong: #2563eb;
+    --accent: var(--primary);
+    --accent-strong: var(--primary-strong);
+    --border: rgba(148, 163, 184, 0.15);
     --text: #e2e8f0;
-    --muted: #94a3b8;
+    --text-muted: #94a3b8;
+    --danger: #ef4444;
+    --danger-strong: #dc2626;
+    --shadow: 0 30px 60px rgba(15, 23, 42, 0.35);
+    --radius-lg: 18px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
     --transition: 0.2s ease;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 body {
@@ -19,10 +31,10 @@ body {
     align-items: center;
     justify-content: flex-start;
     gap: 2rem;
-    padding: 40px 0;
-    background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.2), transparent 55%),
-                radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.2), transparent 50%),
-                var(--bg-color);
+    padding: 0 0 40px;
+    background: radial-gradient(circle at top, rgba(59, 130, 246, 0.2), transparent 55%),
+        radial-gradient(circle at 20% 80%, rgba(168, 85, 247, 0.18), transparent 60%),
+        var(--bg-color);
     color: var(--text);
 }
 
@@ -33,7 +45,7 @@ body {
 .nav-container {
     width: min(1280px, 94vw);
     position: relative;
-    margin: 1.35rem auto 1.95rem;
+    margin: 0 auto 1.95rem;
     padding: 0.6rem 0.85rem;
     display: flex;
     align-items: center;
@@ -41,7 +53,7 @@ body {
     gap: 0.9rem;
     background: linear-gradient(150deg, rgba(8, 13, 26, 0.94), rgba(16, 28, 52, 0.78));
     border: 1px solid rgba(59, 130, 246, 0.26);
-    border-radius: 1.9rem;
+    border-radius: 10px;
     box-shadow: 0 26px 56px rgba(5, 9, 22, 0.55);
     backdrop-filter: blur(16px);
     overflow: hidden;
@@ -318,9 +330,9 @@ body {
 .card {
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 20px;
+    border-radius: var(--radius-lg);
     padding: 48px;
-    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.45);
+    box-shadow: var(--shadow);
     backdrop-filter: blur(12px);
     position: relative;
     overflow: hidden;
@@ -330,7 +342,7 @@ body {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), transparent 60%);
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), transparent 60%);
     pointer-events: none;
 }
 
@@ -345,7 +357,7 @@ header h1 {
 
 header p {
     margin: 0;
-    color: var(--muted);
+    color: var(--text-muted);
     font-size: 1.05rem;
 }
 
@@ -389,7 +401,7 @@ input::placeholder {
 }
 
 .dropzone {
-    border: 2px dashed rgba(56, 189, 248, 0.4);
+    border: 2px dashed rgba(59, 130, 246, 0.4);
     border-radius: 16px;
     padding: 48px 24px;
     text-align: center;
@@ -398,7 +410,7 @@ input::placeholder {
     align-items: center;
     justify-content: center;
     gap: 12px;
-    background: rgba(15, 23, 42, 0.5);
+    background: rgba(21, 33, 60, 0.55);
     transition: border-color 0.2s ease, background 0.2s ease;
     cursor: pointer;
     min-height: 220px;
@@ -406,7 +418,7 @@ input::placeholder {
 
 .dropzone.dragover {
     border-color: var(--accent);
-    background: rgba(56, 189, 248, 0.12);
+    background: rgba(59, 130, 246, 0.16);
 }
 
 .dropzone svg {
@@ -422,7 +434,7 @@ input::placeholder {
 .dropzone span {
     display: block;
     margin-top: 8px;
-    color: var(--muted);
+    color: var(--text-muted);
 }
 
 button {
@@ -439,7 +451,7 @@ button {
 
 button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.35);
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.35);
 }
 
 button:disabled {
@@ -450,7 +462,7 @@ button:disabled {
 
 .mode-button {
     background: transparent;
-    color: var(--muted);
+    color: var(--text-muted);
     padding: 10px 24px;
     border-radius: 999px;
     font-size: 0.85rem;
@@ -470,7 +482,7 @@ button:disabled {
 .mode-button.active {
     background: linear-gradient(120deg, var(--accent), var(--accent-strong));
     color: #0b1120;
-    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.25);
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.28);
 }
 
 .mode-panels {
@@ -497,7 +509,7 @@ button:disabled {
 .mode-pane .hint {
     max-width: 540px;
     margin: 0;
-    color: var(--muted);
+    color: var(--text-muted);
     font-size: 0.9rem;
 }
 
@@ -506,10 +518,10 @@ button:disabled {
 }
 
 .url-panel {
-    border: 2px dashed rgba(56, 189, 248, 0.4);
+    border: 2px dashed rgba(59, 130, 246, 0.4);
     border-radius: 16px;
     padding: 32px;
-    background: rgba(15, 23, 42, 0.5);
+    background: rgba(21, 33, 60, 0.55);
     display: flex;
     gap: 20px;
     align-items: center;
@@ -535,7 +547,7 @@ button:disabled {
 
 .footnote {
     margin: 0;
-    color: var(--muted);
+    color: var(--text-muted);
     font-size: 0.85rem;
 }
 
@@ -597,14 +609,14 @@ button:disabled {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     text-decoration: none;
-    box-shadow: 0 16px 32px rgba(14, 165, 233, 0.25);
+    box-shadow: 0 16px 32px rgba(37, 99, 235, 0.28);
     text-shadow: 0 1px 2px rgba(15, 23, 42, 0.4);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .results-all-link:hover {
     transform: translateY(-2px);
-    box-shadow: 0 20px 36px rgba(14, 165, 233, 0.35);
+    box-shadow: 0 20px 36px rgba(37, 99, 235, 0.4);
     text-decoration: none;
 }
 
@@ -633,8 +645,8 @@ button:disabled {
     padding: 16px 20px;
     border-radius: 12px;
     margin-bottom: 24px;
-    border: 1px solid rgba(56, 189, 248, 0.4);
-    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    background: rgba(59, 130, 246, 0.12);
     color: var(--text);
 }
 
@@ -646,7 +658,7 @@ button:disabled {
 footer {
     margin-top: 0;
     text-align: center;
-    color: var(--muted);
+    color: var(--text-muted);
     font-size: 0.9rem;
     display: flex;
     flex-direction: column;

@@ -59,11 +59,9 @@ $currentPageLabel = $navItems[$currentNavKey]['label'] ?? 'Menu';
             $url = $buildLocalUrl($navItem['path']);
             $isActive = $key === $currentNavKey;
         ?>
-            <a class="nav-link<?= $isActive ? ' active' : '' ?>" href="<?= htmlspecialchars($url === '' ? '/' : $url, ENT_QUOTES, 'UTF-8'); ?>"<?= $isActive ? ' aria-current="page"' : ''; ?>>
-                <span class="nav-link-icon">
-                    <i class="fas <?= htmlspecialchars($navItem['icon'], ENT_QUOTES, 'UTF-8'); ?>" aria-hidden="true"></i>
-                </span>
-                <span class="nav-link-text"><?= htmlspecialchars($navItem['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+            <a class="nav-link<?= $isActive ? ' active' : '' ?>" href="<?= htmlspecialchars($url === '' ? '/' : $url, ENT_QUOTES, 'UTF-8'); ?>">
+                <i class="fas <?= htmlspecialchars($navItem['icon'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                <?= htmlspecialchars($navItem['label'], ENT_QUOTES, 'UTF-8'); ?>
             </a>
         <?php endforeach; ?>
     </nav>
