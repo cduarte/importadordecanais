@@ -682,7 +682,10 @@
 
     function createDualItem(channel, action) {
         const label = channel.name || channel.tvgName || 'Canal sem nome';
-        const subtitleRaw = channel.tvgId ? `ID: ${channel.tvgId}` : channel.url || '';
+        const category = (channel.group || '').trim();
+        const subtitleRaw = category
+            ? `Categoria: ${category}`
+            : (channel.tvgId ? `ID: ${channel.tvgId}` : channel.url || '');
         const subtitle = subtitleRaw ? `<small title="${escapeHtml(subtitleRaw)}">${escapeHtml(subtitleRaw)}</small>` : '';
         const buttonLabel = action === 'remove-channel' ? 'Remover' : 'Adicionar';
         const buttonClass = action === 'remove-channel' ? 'icon-button danger' : 'icon-button';
