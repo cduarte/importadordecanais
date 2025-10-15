@@ -292,7 +292,12 @@ function publicPath(string $absolutePath): string
             <section class="results">
                 <h2>Arquivos gerados</h2>
                 <?php if ($results['zip']): ?>
-                    <p><a href="<?php echo htmlspecialchars(publicPath($results['zip']), ENT_QUOTES, 'UTF-8'); ?>" download>Baixar todas as categorias (.zip)</a></p>
+                    <p class="results-all">
+                        <a class="results-all-link" href="<?php echo htmlspecialchars(publicPath($results['zip']), ENT_QUOTES, 'UTF-8'); ?>" download>
+                            <span aria-hidden="true" class="results-all-link__icon">⬇</span>
+                            Baixar todas as categorias (.zip)
+                        </a>
+                    </p>
                 <?php endif; ?>
                 <p>Ou baixe uma categoria unica especifica abaixo:</p>
                 <ul>

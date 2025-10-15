@@ -285,6 +285,39 @@ button:disabled {
     margin-top: 0;
 }
 
+.results-all {
+    margin: 18px 0 8px;
+    display: flex;
+    justify-content: center;
+}
+
+.results-all-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 24px;
+    border-radius: 14px;
+    background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+    color: #0b1120;
+    font-size: 1.05rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    box-shadow: 0 16px 32px rgba(14, 165, 233, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.results-all-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 36px rgba(14, 165, 233, 0.35);
+    text-decoration: none;
+}
+
+.results-all-link__icon {
+    font-size: 1.4rem;
+}
+
 .results ul {
     list-style: none;
     padding: 0;
