@@ -237,7 +237,7 @@ function publicPath(string $absolutePath): string
     <section class="card">
         <header>
             <h1>Separador de Listas M3U</h1>
-            <p>Envie sua lista, acompanhe o processamento e receba as categorias organizadas em pastas de Canais, Filmes e Séries.</p>
+            <p>Divida suas playlists IPTV M3U por categorias automaticamente.</p>
         </header>
 
         <?php if ($error): ?>
