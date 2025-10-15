@@ -575,6 +575,12 @@ body {
     margin-bottom: 1.5rem;
 }
 
+.board-header-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
 .board-header h3 {
     margin: 0;
     font-size: 1.2rem;
@@ -635,6 +641,11 @@ body {
     gap: 0.5rem;
     flex-wrap: wrap;
     width: 100%;
+}
+
+.pagination-inline {
+    justify-content: flex-start;
+    margin-top: 0.1rem;
 }
 
 .pagination-button {

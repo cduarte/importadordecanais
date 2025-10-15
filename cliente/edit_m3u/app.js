@@ -662,14 +662,7 @@
         const baseLabel = group.total !== group.size
             ? `${group.size} de ${group.total} canal${group.total === 1 ? '' : 's'}`
             : `${group.size} canal${group.size === 1 ? '' : 's'}`;
-        const descriptor = escapeHtml(baseLabel);
-
-        if (group.allRemoved) {
-            return `${descriptor} • todos os canais removidos`;
-        }
-
-        const sample = group.sample.filter(Boolean).map(escapeHtml).join(' • ');
-        return sample ? `${descriptor} • ${sample}` : descriptor;
+        return escapeHtml(baseLabel);
     }
 
     function createChannelThumb(channel) {
