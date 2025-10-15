@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/constants.php';
+
 /**
  * Renderiza a página de importação com base nas configurações fornecidas.
  *
@@ -1361,7 +1363,7 @@ HTML
         </section>
     </div>
 
-    <script src="assets/importer.js?3"></script>
+    <script src="assets/importer.js?<?= ASSET_VERSION ?>"></script>
     <script>
         const ACTION_URL = <?= $actionUrlJson ?>;
         const STATUS_URL = <?= $statusUrlJson ?>;
