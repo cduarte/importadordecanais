@@ -121,29 +121,17 @@ $uploadEndpoint = $scriptDir . '/upload.php';
                     </article>
                 </section>
 
-                <section class="card channels-panel">
-                    <header class="channels-header">
-                        <div>
-                            <h3 id="channelsTitle">Canais</h3>
-                            <small id="channelsSubtitle">Selecione um grupo para visualizar os canais disponíveis.</small>
-                        </div>
-                        <div class="channels-actions">
-                            <button id="btnDownload" class="primary-button" disabled>Baixar M3U</button>
-                            <button id="btnCopy" class="ghost-button" disabled>Copiar playlist</button>
-                        </div>
-                    </header>
-                    <div class="channels-table" id="channelsTable">
-                        <p class="empty-state">Importe um arquivo para começar.</p>
-                    </div>
-                </section>
-
                 <section class="card preview-panel">
                     <header class="preview-header">
                         <div>
                             <h3>Pré-visualização</h3>
                             <small>Conteúdo M3U gerado a partir da seleção atual.</small>
                         </div>
-                        <button id="btnClearList" class="danger-button" disabled>Limpar tudo</button>
+                        <div class="preview-actions">
+                            <button id="btnDownload" class="primary-button" disabled>Baixar M3U</button>
+                            <button id="btnCopy" class="ghost-button" disabled>Copiar playlist</button>
+                            <button id="btnClearList" class="danger-button" disabled>Limpar tudo</button>
+                        </div>
                     </header>
                     <textarea id="exportPreview" rows="8" readonly placeholder="A exportação aparecerá aqui assim que você importar uma playlist."></textarea>
                 </section>

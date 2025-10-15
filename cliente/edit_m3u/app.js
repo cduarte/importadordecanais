@@ -32,9 +32,6 @@
     const groupSearch = document.getElementById('groupSearch');
     const groupsList = document.getElementById('groupsList');
     const selectedGroupsList = document.getElementById('selectedGroupsList');
-    const channelsTable = document.getElementById('channelsTable');
-    const channelsTitle = document.getElementById('channelsTitle');
-    const channelsSubtitle = document.getElementById('channelsSubtitle');
     const btnDownload = document.getElementById('btnDownload');
     const btnCopy = document.getElementById('btnCopy');
     const btnExportSelection = document.getElementById('btnExportSelection');
@@ -399,14 +396,6 @@
         return state.groupExclusions.get(groupName) || null;
     }
 
-    function removeChannelFromExclusions(uid) {
-        state.groupExclusions.forEach((set, groupName) => {
-            if (set.delete(uid) && set.size === 0) {
-                state.groupExclusions.delete(groupName);
-            }
-        });
-    }
-
     function pruneMissingSelections(groups) {
         const validNames = new Set(groups.map((group) => group.name));
         let changed = false;
@@ -554,91 +543,6 @@
         selectedGroupsList.innerHTML = items;
     }
 
-    function renderChannels() {
-        if (!state.channels.length) {
-            channelsTitle.textContent = 'Canais';
-            channelsSubtitle.textContent = 'Selecione um arquivo para começar.';
-            channelsTable.innerHTML = '<p class="empty-state">Importe um arquivo para começar.</p>';
-            return;
-        }
-
-        if (!state.activeGroup) {
-            channelsTitle.textContent = 'Canais';
-            channelsSubtitle.textContent = 'Selecione um grupo para visualizar os canais disponíveis.';
-            channelsTable.innerHTML = '<p class="empty-state">Escolha um grupo para visualizar seus canais.</p>';
-            return;
-        }
-
-        const channels = getChannelsForActiveGroup();
-        const normalizedGroup = state.activeGroup;
-        const allGroupChannels = state.channels.filter((channel) => normalizeGroup(channel.group) === normalizedGroup);
-        const totalInGroup = allGroupChannels.length;
-        const removedCount = totalInGroup - channels.length;
-        const titleCount = totalInGroup
-            ? (removedCount === 0
-                ? `${channels.length} canal${channels.length === 1 ? '' : 's'}`
-                : `${channels.length} de ${totalInGroup} canal${totalInGroup === 1 ? '' : 's'}`)
-            : '0 canais';
-
-        channelsTitle.textContent = `${state.activeGroup} • ${titleCount}`;
-
-        const subtitleParts = [
-            state.selectedGroups.size
-                ? 'Apenas os grupos selecionados serão exportados.'
-                : 'Selecione grupos para exportar apenas o que desejar.'
-        ];
-
-        if (removedCount > 0) {
-            subtitleParts.push(`${removedCount} canal${removedCount === 1 ? '' : 's'} removido${removedCount === 1 ? '' : 's'} desta seleção.`);
-        }
-
-        channelsSubtitle.textContent = subtitleParts.join(' • ');
-
-        if (!channels.length) {
-            const message = removedCount > 0
-                ? 'Todos os canais deste grupo foram removidos da seleção. Use o botão "Editar" para restaurá-los.'
-                : 'Nenhum canal neste grupo.';
-            channelsTable.innerHTML = `<p class="empty-state">${message}</p>`;
-            return;
-        }
-
-        const rows = channels
-            .map((channel) => `
-                <tr data-uid="${escapeHtml(channel.uid)}">
-                    <td><img class="channel-logo" src="${channel.logo ? escapeHtml(channel.logo) : 'data:image/gif;base64,R0lGODlhAQABAAAAACw='}" alt="Logo de ${escapeHtml(channel.name || channel.tvgName || 'Canal')}"></td>
-                    <td><input class="channel-input" type="text" value="${escapeHtml(channel.name)}" data-field="name"></td>
-                    <td><input class="channel-input" type="text" value="${escapeHtml(channel.group)}" data-field="group"></td>
-                    <td><input class="channel-input" type="url" value="${escapeHtml(channel.url)}" data-field="url"></td>
-                    <td><input class="channel-input" type="text" value="${escapeHtml(channel.tvgId)}" data-field="tvgId"></td>
-                    <td>
-                        <div class="channel-actions">
-                            <button type="button" data-action="move-up" title="Mover para cima">▲</button>
-                            <button type="button" data-action="move-down" title="Mover para baixo">▼</button>
-                            <button type="button" data-action="duplicate" title="Duplicar canal">⧉</button>
-                            <button type="button" data-action="remove" class="danger" title="Remover canal">✕</button>
-                        </div>
-                    </td>
-                </tr>
-            `)
-            .join('');
-
-        channelsTable.innerHTML = `
-            <table>
-                <thead>
-                    <tr>
-                        <th>Logo</th>
-                        <th>Nome</th>
-                        <th>Grupo</th>
-                        <th>URL</th>
-                        <th>ID</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>
-        `;
-    }
-
     function updateExportPreview() {
         const channels = getExportableChannels();
         const text = channels.length ? serializeM3U(channels) : '';
@@ -662,7 +566,6 @@
         ensureActiveGroup(groups);
         renderGroups(groups);
         renderSelected(groups);
-        renderChannels();
         updateCounts(groups);
         updateExportPreview();
         updateActionsState();
@@ -740,35 +643,6 @@
             return;
         }
 
-        render();
-    }
-
-    function moveChannel(uid, direction) {
-        const index = state.channels.findIndex((channel) => channel.uid === uid);
-        if (index === -1) return;
-        const newIndex = index + direction;
-        if (newIndex < 0 || newIndex >= state.channels.length) return;
-        const [channel] = state.channels.splice(index, 1);
-        state.channels.splice(newIndex, 0, channel);
-        render();
-    }
-
-    function removeChannel(uid) {
-        state.channels = state.channels.filter((channel) => channel.uid !== uid);
-        removeChannelFromExclusions(uid);
-        render();
-    }
-
-    function duplicateChannel(uid) {
-        const channel = state.channels.find((item) => item.uid === uid);
-        if (!channel) return;
-        const clone = {
-            ...channel,
-            uid: generateId(),
-            name: `${channel.name || 'Canal'} (cópia)`
-        };
-        const index = state.channels.findIndex((item) => item.uid === uid);
-        state.channels.splice(index + 1, 0, clone);
         render();
     }
 
@@ -1070,62 +944,6 @@
         if (!groupName) return;
         state.activeGroup = groupName;
         render();
-    });
-
-    channelsTable.addEventListener('input', (event) => {
-        const input = event.target;
-        if (!(input instanceof HTMLInputElement)) return;
-        const field = input.dataset.field;
-        if (!field) return;
-        const row = input.closest('tr');
-        if (!row) return;
-        const uid = row.dataset.uid;
-        if (!uid) return;
-        const channel = state.channels.find((item) => item.uid === uid);
-        if (!channel) return;
-        let previousGroupName = null;
-        if (field === 'group') {
-            previousGroupName = normalizeGroup(channel.group);
-        }
-        channel[field] = input.value;
-        if (field === 'name') {
-            channel.tvgName = input.value;
-        }
-        if (field === 'group') {
-            const newGroupName = normalizeGroup(channel.group);
-            if (previousGroupName && previousGroupName !== newGroupName) {
-                removeChannelFromExclusions(channel.uid);
-            }
-        }
-        render();
-    });
-
-    channelsTable.addEventListener('click', (event) => {
-        const button = event.target.closest('button[data-action]');
-        if (!button) return;
-        const row = button.closest('tr');
-        if (!row) return;
-        const uid = row.dataset.uid;
-        if (!uid) return;
-
-        switch (button.dataset.action) {
-            case 'move-up':
-                moveChannel(uid, -1);
-                break;
-            case 'move-down':
-                moveChannel(uid, 1);
-                break;
-            case 'remove':
-                if (confirm('Remover este canal da lista?')) {
-                    removeChannel(uid);
-                }
-                break;
-            case 'duplicate':
-                duplicateChannel(uid);
-                break;
-            default:
-                break;
-        }
     });
 
     btnExportSelection.addEventListener('click', () => {
