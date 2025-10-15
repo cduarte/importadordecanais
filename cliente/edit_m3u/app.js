@@ -63,8 +63,8 @@
     const uploadProgressLabel = document.getElementById('uploadProgressLabel');
 
     const knownAttributes = ['tvg-id', 'tvg-name', 'tvg-logo', 'group-title'];
-    const uploadEndpointMeta = document.querySelector('meta[name="edit-m3u-upload-endpoint"]');
-    const uploadEndpoint = uploadEndpointMeta?.content?.trim() || 'proces_edit_m3u.php';
+    const uploadEndpointMeta = document.querySelector('meta[name="edit-m3u-handler"]');
+    const uploadEndpoint = uploadEndpointMeta?.content?.trim() || 'index.php?action=edit-m3u-handler';
 
     let editingGroup = null;
     let landingBusy = false;
