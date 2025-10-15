@@ -284,87 +284,116 @@ function publicPath(string $absolutePath): string
 </head>
 <body>
 <?php include __DIR__ . '/../includes/navigation_menu.php'; ?>
-<main class="page-content">
-    <section class="card<?php echo $results ? ' card--results' : ''; ?>">
-        <?php if (!$results): ?>
-            <header>
-                <h1>Dividir Playlist IPTV</h1>
-                <p>Automatize a separação por categorias e ganhe tempo no seu painel IPTV.</p>
-            </header>
-
-            <?php if ($error): ?>
-                <div class="alert error">
-                    <?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?>
-                </div>
-            <?php endif; ?>
-
-            <form method="post" enctype="multipart/form-data" data-default-mode="<?php echo htmlspecialchars($activeMode, ENT_QUOTES, 'UTF-8'); ?>">
-                <div class="mode-switch" role="tablist" aria-label="Selecione a forma de envio">
-                    <button type="button" class="mode-button<?php echo $activeMode === 'file' ? ' active' : ''; ?>" data-mode="file">Por arquivo</button>
-                    <button type="button" class="mode-button<?php echo $activeMode === 'url' ? ' active' : ''; ?>" data-mode="url">Por URL</button>
-                </div>
-
-                <div class="mode-panels">
-                    <div class="mode-pane<?php echo $activeMode === 'file' ? ' active' : ''; ?>" data-mode="file">
-                        <div class="dropzone" data-role="file" role="button" tabindex="0" aria-label="Enviar arquivo M3U">
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M12 16a1 1 0 0 1-1-1V9.41l-1.3 1.3a1 1 0 1 1-1.4-1.42l3-3a1 1 0 0 1 1.4 0l3 3a1 1 0 1 1-1.4 1.42L13 9.41V15a1 1 0 0 1-1 1Z"/>
-                                <path d="M6 20a4 4 0 0 1-4-4 4 4 0 0 1 3-3.86A6 6 0 0 1 11 5a6 6 0 0 1 5.61 3.8A5 5 0 0 1 22 13a5 5 0 0 1-5 5H6Zm0-2h11a3 3 0 1 0-.28-5.99 1 1 0 0 1-1-.65A4 4 0 0 0 11 7a4 4 0 0 0-3.63 2.25 1 1 0 0 1-.83.57A2 2 0 0 0 4 12a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1Zm0 0"/>
-                            </svg>
-                            <strong>Arraste e solte aqui seu Arquivo M3U</strong>
-                            <span>ou clique para selecionar um arquivo</span>
+<div class="app-shell">
+    <section class="split-landing">
+        <div class="split-grid">
+            <div class="split-intro">
+                <p class="split-subtitle">Organize suas listas</p>
+                <h1>Divida sua playlist M3U por categorias</h1>
+                <p class="split-description">Transforme uma playlist única em coleções separadas de canais, filmes e séries em segundos.</p>
+                <ul class="split-highlights">
+                    <li>
+                        <span class="split-highlight-icon"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
+                        Processamento automático com identificação das categorias existentes.
+                    </li>
+                    <li>
+                        <span class="split-highlight-icon"><i class="fa-solid fa-folder-tree" aria-hidden="true"></i></span>
+                        Cria a estrutura de pastas pronta para importar no seu painel IPTV.
+                    </li>
+                    <li>
+                        <span class="split-highlight-icon"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i></span>
+                        Baixe todas as categorias em ZIP ou escolha apenas as que precisar.
+                    </li>
+                </ul>
+                <?php if ($results): ?>
+                    <div class="split-success">
+                        <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+                        <div>
+                            <strong>Listas geradas com sucesso!</strong>
+                            <p>Faça o download dos arquivos ao lado e gere novas separações quando quiser.</p>
                         </div>
-                        <input type="file" name="m3u_file" id="m3u_file" accept=".m3u,.txt" hidden>
                     </div>
+                <?php else: ?>
+                    <p class="split-footnote">Suporta arquivos .m3u, .m3u8 e .txt com codificação UTF-8.</p>
+                <?php endif; ?>
+            </div>
+            <article class="split-card<?php echo $results ? ' split-card--results' : ''; ?>">
+                <?php if ($error): ?>
+                    <div class="alert error">
+                        <?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                <?php endif; ?>
 
-                    <div class="mode-pane<?php echo $activeMode === 'url' ? ' active' : ''; ?>" data-mode="url">
-                        <div class="url-panel">
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M8.59 13.41a1 1 0 0 1 0-1.41L12.59 8a1 1 0 0 1 1.41 1.41L10 13.41a1 1 0 0 1-1.41 0Z"/>
-                                <path d="M7.05 7.05a7 7 0 0 1 9.9 0l.7.7a7 7 0 0 1 0 9.9l-1.59 1.59a7 7 0 0 1-9.9 0l-.7-.7a7 7 0 0 1 0-9.9l1.59-1.59a1 1 0 1 1 1.41 1.41L7.41 8.46a5 5 0 0 0 0 7.08l.7.7a5 5 0 0 0 7.08 0l1.59-1.59a5 5 0 0 0 0-7.08l-.7-.7a5 5 0 0 0-7.08 0L7.05 7.05Z"/>
-                            </svg>
-                            <div class="url-fields">
-                                <strong>Informe a URL da sua Playlist M3U</strong>
-                                <input type="url" name="m3u_url" id="m3u_url" placeholder="https://url.com/lista.m3u" value="<?php echo isset($_POST['m3u_url']) ? htmlspecialchars((string)$_POST['m3u_url'], ENT_QUOTES, 'UTF-8') : ''; ?>" aria-label="URL da lista M3U"<?php echo $activeMode === 'url' ? ' required' : ''; ?>>
+                <?php if (!$results): ?>
+                    <h2 class="split-card__title">Comece enviando sua playlist</h2>
+                    <p class="split-card__subtitle">Escolha enviar um arquivo M3U ou informe uma URL para que façamos o download automaticamente.</p>
+
+                    <form method="post" enctype="multipart/form-data" data-default-mode="<?php echo htmlspecialchars($activeMode, ENT_QUOTES, 'UTF-8'); ?>">
+                        <div class="mode-switch" role="tablist" aria-label="Selecione a forma de envio">
+                            <button type="button" class="mode-button<?php echo $activeMode === 'file' ? ' active' : ''; ?>" data-mode="file">Por arquivo</button>
+                            <button type="button" class="mode-button<?php echo $activeMode === 'url' ? ' active' : ''; ?>" data-mode="url">Por URL</button>
+                        </div>
+
+                        <div class="mode-panels">
+                            <div class="mode-pane<?php echo $activeMode === 'file' ? ' active' : ''; ?>" data-mode="file">
+                                <div class="dropzone" data-role="file" role="button" tabindex="0" aria-label="Enviar arquivo M3U">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M12 16a1 1 0 0 1-1-1V9.41l-1.3 1.3a1 1 0 1 1-1.4-1.42l3-3a1 1 0 0 1 1.4 0l3 3a1 1 0 1 1-1.4 1.42L13 9.41V15a1 1 0 0 1-1 1Z"/>
+                                        <path d="M6 20a4 4 0 0 1-4-4 4 4 0 0 1 3-3.86A6 6 0 0 1 11 5a6 6 0 0 1 5.61 3.8A5 5 0 0 1 22 13a5 5 0 0 1-5 5H6Zm0-2h11a3 3 0 1 0-.28-5.99 1 1 0 0 1-1-.65A4 4 0 0 0 11 7a4 4 0 0 0-3.63 2.25 1 1 0 0 1-.83.57A2 2 0 0 0 4 12a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1Zm0 0"/>
+                                    </svg>
+                                    <strong>Arraste e solte aqui seu arquivo M3U</strong>
+                                    <span>ou clique para selecionar um arquivo do seu computador</span>
+                                </div>
+                                <input type="file" name="m3u_file" id="m3u_file" accept=".m3u,.m3u8,.txt" hidden>
+                            </div>
+
+                            <div class="mode-pane<?php echo $activeMode === 'url' ? ' active' : ''; ?>" data-mode="url">
+                                <div class="url-panel">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M8.59 13.41a1 1 0 0 1 0-1.41L12.59 8a1 1 0 0 1 1.41 1.41L10 13.41a1 1 0 0 1-1.41 0Z"/>
+                                        <path d="M7.05 7.05a7 7 0 0 1 9.9 0l.7.7a7 7 0 0 1 0 9.9l-1.59 1.59a7 7 0 0 1-9.9 0l-.7-.7a7 7 0 0 1 0-9.9l1.59-1.59a1 1 0 1 1 1.41 1.41L7.41 8.46a5 5 0 0 0 0 7.08l.7.7a5 5 0 0 0 7.08 0l1.59-1.59a5 5 0 0 0 0-7.08l-.7-.7a5 5 0 0 0-7.08 0L7.05 7.05Z"/>
+                                    </svg>
+                                    <div class="url-fields">
+                                        <strong>Informe a URL da sua playlist M3U</strong>
+                                        <input type="url" name="m3u_url" id="m3u_url" placeholder="https://url.com/lista.m3u" value="<?php echo isset($_POST['m3u_url']) ? htmlspecialchars((string)$_POST['m3u_url'], ENT_QUOTES, 'UTF-8') : ''; ?>" aria-label="URL da lista M3U"<?php echo $activeMode === 'url' ? ' required' : ''; ?>>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        <div class="progress" role="status" aria-live="polite">
+                            <div class="progress-bar"></div>
+                        </div>
+
+                        <button type="submit">Processar lista</button>
+                    </form>
+                <?php else: ?>
+                    <h2 class="split-card__title">Arquivos gerados</h2>
+                    <div class="results">
+                        <?php if ($results['zip']): ?>
+                            <a class="results-all-link" href="<?php echo htmlspecialchars(publicPath($results['zip']), ENT_QUOTES, 'UTF-8'); ?>" download>
+                                <span class="results-all-link__icon" aria-hidden="true"><i class="fa-solid fa-download"></i></span>
+                                BAIXAR TODAS AS CATEGORIAS (.ZIP)
+                            </a>
+                        <?php endif; ?>
+                        <p>Ou baixe apenas as categorias desejadas:</p>
+                        <ul class="results-list">
+                            <?php foreach ($results['files'] as $file): ?>
+                                <li>
+                                    <strong><?php echo htmlspecialchars($file['folder'], ENT_QUOTES, 'UTF-8'); ?></strong> / <?php echo htmlspecialchars($file['category'], ENT_QUOTES, 'UTF-8'); ?> —
+                                    <a href="<?php echo htmlspecialchars(publicPath($file['path']), ENT_QUOTES, 'UTF-8'); ?>" download>Baixar M3U</a>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
                     </div>
-                </div>
-
-                <div class="progress">
-                    <div class="progress-bar"></div>
-                </div>
-
-                <footer>
-                    <button type="submit">Processar lista</button>
-                </footer>
-            </form>
-        <?php endif; ?>
-
-        <?php if ($results): ?>
-            <section class="results">
-                <h2>Arquivos gerados</h2>
-                <?php if ($results['zip']): ?>
-                    <p class="results-all">
-                        <a class="results-all-link" href="<?php echo htmlspecialchars(publicPath($results['zip']), ENT_QUOTES, 'UTF-8'); ?>" download>
-                            <span aria-hidden="true" class="results-all-link__icon">⬇</span>
-                            BAIXAR TODAS AS CATEGORIAS (.ZIP)
-                        </a>
-                    </p>
+                    <div class="results-actions">
+                        <a class="ghost-button" href="<?php echo htmlspecialchars($buildLocalUrl('index.php'), ENT_QUOTES, 'UTF-8'); ?>">Processar nova playlist</a>
+                    </div>
                 <?php endif; ?>
-                <p>Ou baixe uma categoria única específica abaixo:</p>
-                <ul>
-                    <?php foreach ($results['files'] as $file): ?>
-                        <li>
-                            <strong><?php echo htmlspecialchars($file['folder'], ENT_QUOTES, 'UTF-8'); ?></strong> / <?php echo htmlspecialchars($file['category'], ENT_QUOTES, 'UTF-8'); ?> —
-                            <a href="<?php echo htmlspecialchars(publicPath($file['path']), ENT_QUOTES, 'UTF-8'); ?>" download>Baixar M3U</a>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            </section>
-        <?php endif; ?>
+            </article>
+        </div>
     </section>
-</main>
+</div>
 <script src="assets/app.js"></script>
 <script>
     (function () {
