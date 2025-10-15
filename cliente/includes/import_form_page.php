@@ -67,6 +67,15 @@ function renderImportFormPage(array $config): void
 
     $resource = array_merge($resourceDefaults, $config['resource'] ?? []);
 
+    $resourceCapitalized = htmlspecialchars($resource['capitalized_plural'], ENT_QUOTES, 'UTF-8');
+    $resourcePluralLowerRaw = $resource['plural'];
+    if (function_exists('mb_strtolower')) {
+        $resourcePluralLowerRaw = mb_strtolower($resourcePluralLowerRaw, 'UTF-8');
+    } else {
+        $resourcePluralLowerRaw = strtolower($resourcePluralLowerRaw);
+    }
+    $resourcePluralLower = htmlspecialchars($resourcePluralLowerRaw, ENT_QUOTES, 'UTF-8');
+
     $actionEndpoint = $config['action_endpoint'] ?? 'canais';
     $statusEndpoint = $config['status_endpoint'] ?? ($actionEndpoint . '_status');
 
@@ -205,7 +214,7 @@ HTML
     $pageTitle = 'Importador M3U para XUI.ONE';
     $heroHighlight = htmlspecialchars($resource['upper_plural'], ENT_QUOTES, 'UTF-8');
     $heroDescriptionHtml = sprintf(
-        'Sistema profissional para importação de Fonte de <span style="background:#fff3b0;color: #000;">%s</span> diretamente para o <strong>XUI.ONE</strong>, com categorização automática.',
+        'Sistema profissional para importação de Fonte de <span class="hero-highlight">%s</span> diretamente para o <strong>XUI.ONE</strong>, com categorização automática.',
         $heroHighlight
     );
 
@@ -239,13 +248,13 @@ HTML
             --success-color: #10b981;
             --error-color: #ef4444;
             --warning-color: #f59e0b;
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --bg-tertiary: #334155;
+            --bg-primary: #0b1120;
+            --bg-secondary: #111c2e;
+            --bg-tertiary: #16263f;
             --text-primary: #f8fafc;
-            --text-secondary: #cbd5e1;
-            --text-muted: #94a3b8;
-            --border-color: #475569;
+            --text-secondary: #cbd5f5;
+            --text-muted: #8da2c5;
+            --border-color: rgba(59, 130, 246, 0.25);
             --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
@@ -444,56 +453,170 @@ HTML
             margin: 0 auto;
         }
 
+        .hero-highlight {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.15rem 0.5rem;
+            border-radius: var(--radius-sm);
+            background: rgba(250, 204, 21, 0.18);
+            color: #facc15;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
         .main-card {
-            background: var(--bg-secondary);
+            background: linear-gradient(145deg, rgba(17, 28, 46, 0.92), rgba(17, 36, 64, 0.92));
             border-radius: var(--radius-xl);
             box-shadow: var(--shadow-xl);
-            border: 1px solid var(--border-color);
+            border: 1px solid rgba(148, 163, 184, 0.12);
             overflow: hidden;
             margin-bottom: 2rem;
         }
 
         .card-header {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: flex-start;
+            gap: 1.25rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.05));
+            border-bottom: 1px solid rgba(59, 130, 246, 0.18);
         }
 
-        .card-header h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: white;
+        .card-header-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 18px;
+            background: rgba(59, 130, 246, 0.18);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.35);
+        }
+
+        .card-header-text {
             display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .card-chip {
+            display: inline-flex;
             align-items: center;
             gap: 0.5rem;
+            padding: 0.35rem 0.85rem;
+            border-radius: 999px;
+            background: rgba(59, 130, 246, 0.12);
+            color: var(--primary-light);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .card-chip i {
+            color: var(--primary-color);
+        }
+
+        .card-header-text h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .card-header-text p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            max-width: 520px;
         }
 
         .form-container {
             padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
         }
 
         .form-grid {
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 1.5rem;
+        }
+
+        .form-section {
+            padding: 1.75rem;
+            border-radius: var(--radius-lg);
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.08);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .section-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            background: rgba(59, 130, 246, 0.16);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+            font-size: 1.25rem;
+            box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+        }
+
+        .section-header h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .section-header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-top: 0.35rem;
+        }
+
+        .section-fields {
+            margin-top: 1.25rem;
+            display: grid;
+            gap: 1.25rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
+            gap: 0.45rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
         }
 
         .form-group label {
             font-weight: 500;
             color: var(--text-primary);
-            margin-bottom: 0.5rem;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.55rem;
+        }
+
+        .form-group label span {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 400;
         }
 
         .form-group label i {
             color: var(--primary-color);
-            width: 16px;
+            width: 18px;
         }
 
         .input-wrapper {
@@ -502,45 +625,73 @@ HTML
 
         .form-group input {
             width: 100%;
-            padding: 0.875rem 1rem;
-            background: var(--bg-tertiary);
-            border: 2px solid var(--border-color);
+            padding: 0.9rem 1.1rem;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(59, 130, 246, 0.2);
             border-radius: var(--radius-md);
             color: var(--text-primary);
             font-size: 1rem;
             transition: all 0.2s ease;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
         }
 
         .form-group input:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
         }
 
         .form-group input::placeholder {
             color: var(--text-muted);
         }
 
+        .form-footer {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .form-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            background: rgba(15, 23, 42, 0.7);
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            padding: 1rem 1.25rem;
+        }
+
+        .form-note i {
+            color: var(--primary-color);
+            font-size: 1rem;
+            margin-top: 0.2rem;
+        }
+
         .submit-btn {
             background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
             color: white;
             border: none;
-            padding: 1rem 2rem;
-            border-radius: var(--radius-md);
+            padding: 1rem 2.5rem;
+            border-radius: var(--radius-lg);
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 0.5rem;
-            margin-top: 1rem;
+            gap: 0.75rem;
+            align-self: flex-end;
+            box-shadow: 0 20px 35px -20px rgba(59, 130, 246, 0.8);
+            min-width: 220px;
         }
 
         .submit-btn:hover {
             transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
+            box-shadow: 0 25px 45px -22px rgba(59, 130, 246, 0.9);
         }
 
         .submit-btn:active {
@@ -783,6 +934,16 @@ HTML
             .nav-toggle {
                 display: none;
             }
+
+            .form-footer {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .form-note {
+                max-width: 60%;
+            }
         }
 
         /* Responsividade aprimorada */
@@ -792,11 +953,33 @@ HTML
             }
 
             .card-header {
-                padding: 1.25rem 1.5rem;
+                padding: 1.5rem;
+                flex-direction: column;
+            }
+
+            .card-header-text {
+                gap: 0.5rem;
             }
 
             .form-container {
                 padding: 1.5rem;
+                gap: 1.5rem;
+            }
+
+            .form-section {
+                padding: 1.25rem;
+            }
+
+            .section-fields {
+                grid-template-columns: 1fr;
+            }
+
+            .form-footer {
+                align-items: stretch;
+            }
+
+            .submit-btn {
+                width: 100%;
             }
 
             .header h1 {
@@ -825,12 +1008,17 @@ HTML
                 padding: 1rem;
             }
 
-            .card-header,
-            .faq-header {
-                padding: 1rem;
+            .card-header {
+                padding: 1.25rem;
             }
 
-            .card-header h2,
+            .card-header-icon {
+                width: 44px;
+                height: 44px;
+                font-size: 1.25rem;
+            }
+
+            .card-header-text h2,
             .faq-header h2 {
                 font-size: 1.125rem;
             }
@@ -852,6 +1040,11 @@ HTML
             .submit-btn {
                 padding: 0.75rem 1.25rem;
                 font-size: 0.9rem;
+            }
+
+            .form-note {
+                padding: 0.85rem 1rem;
+                font-size: 0.85rem;
             }
         }
 
@@ -897,79 +1090,104 @@ HTML
 
         <main class="main-card">
             <div class="card-header">
-                <h2><i class="fas fa-database"></i> Configuração do Sistema</h2>
+                <div class="card-header-icon">
+                    <i class="fas fa-sliders-h"></i>
+                </div>
+                <div class="card-header-text">
+                    <span class="card-chip"><i class="fas fa-bolt"></i> Configuração Rápida de Importação</span>
+                    <h2>Prepare a importação de <?= $resourceCapitalized; ?></h2>
+                    <p>Informe a fonte M3U e os dados de conexão para importar <?= $resourcePluralLower; ?> com segurança no <strong>XUI.ONE</strong>.</p>
+                </div>
             </div>
             <div class="form-container">
                 <form method="post" autocomplete="off" class="form-grid" id="importForm">
-                    <div class="form-group">
-                        <label for="host">
-                            <i class="fas fa-server"></i>
-                            Endereço IP do Banco de Dados
-                        </label>
-                        <input type="text"
-                               id="host"
-                               name="host"
-                               required
-                               value="<?= $hostValue; ?>"
-                               placeholder="Ex: 192.168.1.100">
-                    </div>
+                    <section class="form-section">
+                        <div class="section-header">
+                            <span class="section-icon"><i class="fas fa-cloud-download-alt"></i></span>
+                            <div>
+                                <h3>Fonte da Lista M3U</h3>
+                                <p>Informe a URL que contém os <?= $resourcePluralLower; ?> que deseja importar.</p>
+                            </div>
+                        </div>
+                        <div class="section-fields">
+                            <div class="form-group full-width">
+                                <label for="m3u_url">
+                                    <i class="fas fa-link"></i>
+                                    URL da Fonte
+                                </label>
+                                <input type="url"
+                                       id="m3u_url"
+                                       name="m3u_url"
+                                       required
+                                       value="<?= $m3uUrlValue; ?>"
+                                       placeholder="https://exemplo.com/lista.m3u">
+                            </div>
+                        </div>
+                    </section>
 
-                    <div class="form-group hidden">
-                        <label for="dbname">
-                            <i class="fas fa-database"></i>
-                            Nome do Banco de Dados
-                        </label>
-                        <input type="text"
-                               id="dbname"
-                               name="dbname"
-                               value="<?= $dbnameValue; ?>"
-                               required
-                               placeholder="Ex: xui">
-                    </div>
+                    <section class="form-section">
+                        <div class="section-header">
+                            <span class="section-icon"><i class="fas fa-database"></i></span>
+                            <div>
+                                <h3>Configuração do Banco de Dados de Destino</h3>
+                                <p>Use as credenciais com permissão de inserção para conectar ao XUI.ONE.</p>
+                            </div>
+                        </div>
+                        <div class="section-fields">
+                            <input type="hidden" id="dbname" name="dbname" value="<?= $dbnameValue; ?>">
+                            <div class="form-group">
+                                <label for="host">
+                                    <i class="fas fa-server"></i>
+                                    Endereço IP do Banco de Dados
+                                </label>
+                                <input type="text"
+                                       id="host"
+                                       name="host"
+                                       required
+                                       value="<?= $hostValue; ?>"
+                                       placeholder="Ex: 192.168.1.100">
+                            </div>
 
-                    <div class="form-group">
-                        <label for="username">
-                            <i class="fas fa-user"></i>
-                            Usuário do Banco de Dados
-                        </label>
-                        <input type="text"
-                               id="username"
-                               name="username"
-                               required
-                               value="<?= $usernameValue; ?>"
-                               placeholder="Ex: admin">
-                    </div>
+                            <div class="form-group">
+                                <label for="username">
+                                    <i class="fas fa-user"></i>
+                                    Usuário do Banco de Dados
+                                </label>
+                                <input type="text"
+                                       id="username"
+                                       name="username"
+                                       required
+                                       value="<?= $usernameValue; ?>"
+                                       placeholder="Ex: admin">
+                            </div>
 
-                    <div class="form-group">
-                        <label for="password">
-                            <i class="fas fa-lock"></i>
-                            Senha do Banco de Dados
-                        </label>
-                        <input type="password"
-                               id="password"
-                               name="password"
-                               required
-                               value="<?= $passwordValue; ?>"
-                               placeholder="Digite a senha">
-                    </div>
+                            <div class="form-group">
+                                <label for="password">
+                                    <i class="fas fa-lock"></i>
+                                    Senha do Banco de Dados
+                                </label>
+                                <input type="password"
+                                       id="password"
+                                       name="password"
+                                       required
+                                       value="<?= $passwordValue; ?>"
+                                       placeholder="Digite a senha">
+                            </div>
+                        </div>
+                    </section>
 
-                    <div class="form-group">
-                        <label for="m3u_url">
-                            <i class="fas fa-link"></i>
-                            URL da Fonte
-                        </label>
-                        <input type="url"
-                               id="m3u_url"
-                               name="m3u_url"
-                               required
-                               value="<?= $m3uUrlValue; ?>"
-                               placeholder="https://exemplo.com/lista.m3u">
+                    <div class="form-footer">
+                        <div class="form-note">
+                            <i class="fas fa-shield-alt"></i>
+                            <div>
+                                <strong>Segurança garantida.</strong> Seus dados são utilizados apenas durante o processo de importação e não ficam armazenados em nossos servidores.
+                            </div>
+                        </div>
+                        <button type="submit" class="submit-btn" id="submitBtn">
+                            <i class="fas fa-upload"></i>
+                            Iniciar Importação
+                        </button>
                     </div>
-
-                    <button type="submit" class="submit-btn" id="submitBtn">
-                        <i class="fas fa-upload"></i>
-                        Iniciar Importação
-                    </button>
                 </form>
             </div>
         </main>
