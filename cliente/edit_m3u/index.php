@@ -198,8 +198,6 @@ $currentNavKey = 'edit_m3u';
                         </div>
                         <div class="preview-actions">
                             <button id="btnDownload" class="primary-button" disabled>Baixar M3U</button>
-                            <button id="btnCopy" class="ghost-button" disabled>Copiar playlist</button>
-                            <button id="btnClearList" class="danger-button" disabled>Limpar tudo</button>
                         </div>
                     </header>
                     <textarea id="exportPreview" rows="8" readonly placeholder="A exportação aparecerá aqui assim que você importar uma playlist."></textarea>

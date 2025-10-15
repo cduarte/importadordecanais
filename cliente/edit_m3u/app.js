@@ -44,9 +44,7 @@
     const groupsPagination = document.getElementById('groupsPagination');
     const selectedPagination = document.getElementById('selectedPagination');
     const btnDownload = document.getElementById('btnDownload');
-    const btnCopy = document.getElementById('btnCopy');
     const btnExportSelection = document.getElementById('btnExportSelection');
-    const btnClearList = document.getElementById('btnClearList');
     const exportPreview = document.getElementById('exportPreview');
     const groupsCountLabel = document.getElementById('groupsCount');
     const selectedCountLabel = document.getElementById('selectedCount');
@@ -792,16 +790,31 @@
     }
 
     function updateActionsState() {
-        const hasChannels = state.channels.length > 0;
         const exportable = getExportableChannels();
         const canExport = exportable.length > 0;
         const hasSelection = state.selectedGroups.size > 0;
         const canExportSelection = hasSelection && canExport;
 
         btnDownload.disabled = !canExport;
-        btnCopy.disabled = !canExport;
-        btnClearList.disabled = !hasChannels;
         btnExportSelection.disabled = !canExportSelection;
+    }
+
+    function downloadPlaylist() {
+        const channels = getExportableChannels();
+        if (!channels.length) {
+            alert('Adicione ou importe canais antes de exportar.');
+            return;
+        }
+
+        const blob = new Blob([serializeM3U(channels)], { type: 'audio/x-mpegurl' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = state.fileName ? `custom-${state.fileName}` : 'playlist.m3u';
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
     }
 
     function render() {
@@ -1268,61 +1281,9 @@
         render();
     });
 
-    btnExportSelection.addEventListener('click', () => {
-        updateExportPreview();
-        exportPreview.classList.remove('flash');
-        void exportPreview.offsetWidth; // reinicia animação
-        exportPreview.classList.add('flash');
-        exportPreview.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+    btnExportSelection.addEventListener('click', downloadPlaylist);
 
-    btnDownload.addEventListener('click', () => {
-        const channels = getExportableChannels();
-        if (!channels.length) {
-            alert('Adicione ou importe canais antes de exportar.');
-            return;
-        }
-        const blob = new Blob([serializeM3U(channels)], { type: 'audio/x-mpegurl' });
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = state.fileName ? `custom-${state.fileName}` : 'playlist.m3u';
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
-        URL.revokeObjectURL(url);
-    });
-
-    btnCopy.addEventListener('click', async () => {
-        const channels = getExportableChannels();
-        if (!channels.length) {
-            alert('Adicione ou importe canais antes de copiar.');
-            return;
-        }
-        try {
-            await navigator.clipboard.writeText(serializeM3U(channels));
-            btnCopy.textContent = 'Copiado!';
-            setTimeout(() => {
-                btnCopy.textContent = 'Copiar playlist';
-            }, 2000);
-        } catch (error) {
-            console.error(error);
-            alert('Não foi possível copiar para a área de transferência.');
-        }
-    });
-
-    btnClearList.addEventListener('click', () => {
-        if (!state.channels.length) return;
-        if (!confirm('Tem certeza de que deseja limpar todos os canais?')) return;
-        state.channels = [];
-        state.selectedGroups.clear();
-        state.activeGroup = null;
-        state.fileName = null;
-        updateFileLabel(null);
-        fileInput.value = '';
-        resetPagination();
-        render();
-    });
+    btnDownload.addEventListener('click', downloadPlaylist);
 
     // Interface inicial
     hideUploadProgress();
