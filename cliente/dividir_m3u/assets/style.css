@@ -32,11 +32,16 @@ body {
         radial-gradient(circle at 20% 80%, rgba(168, 85, 247, 0.18), transparent 60%),
         var(--bg);
     color: var(--text);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1.5rem;
     padding: 0 0 2.5rem;
+}
+
+@media (min-width: 768px) {
+    body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+    }
 }
 
 a {
