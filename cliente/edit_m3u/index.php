@@ -112,11 +112,11 @@ $currentNavKey = 'edit_m3u';
                     <article class="card board">
                         <header class="board-header">
                             <div class="board-header-main">
-                                <h3>Grupos (<span id="groupsCount">0</span>)</h3>
+                                <h3>Categorias (<span id="groupsCount">0</span>)</h3>
                                 <div class="pagination pagination-inline" id="groupsPagination" hidden></div>
                             </div>
                             <div class="board-search">
-                                <input type="search" id="groupSearch" placeholder="Buscar grupos">
+                                <input type="search" id="groupSearch" placeholder="Buscar Categorias">
                             </div>
                         </header>
                         <div class="board-body">
@@ -130,8 +130,8 @@ $currentNavKey = 'edit_m3u';
                         <header class="board-header">
                             <div class="board-header-main">
                                 <div class="board-header-title">
-                                    <h3>Grupos selecionados (<span id="selectedCount">0</span>)</h3>
-                                    <small>Somente esses grupos serão exportados.</small>
+                                    <h3>Categorias selecionadas (<span id="selectedCount">0</span>)</h3>
+                                    <small>Somente essas Categorias serão exportadas.</small>
                                 </div>
                                 <div class="pagination pagination-inline" id="selectedPagination" hidden></div>
                             </div>
@@ -139,7 +139,7 @@ $currentNavKey = 'edit_m3u';
                         </header>
                         <div class="board-body">
                             <div class="list-content" id="selectedGroupsList">
-                                <p class="empty-state">Escolha grupos à esquerda para incluí-los aqui.</p>
+                                <p class="empty-state">Escolha Categorias à esquerda para incluí-las aqui.</p>
                             </div>
                         </div>
                     </article>
@@ -148,7 +148,7 @@ $currentNavKey = 'edit_m3u';
                 <section class="card edit-panel hidden" id="editPanel" aria-labelledby="editPanelTitle">
                     <header class="edit-panel-header">
                         <div>
-                            <h3 id="editPanelTitle">Editar grupo</h3>
+                            <h3 id="editPanelTitle">Editar categoria</h3>
                             <p id="editPanelSubtitle">Gerencie os canais que fazem parte desta categoria.</p>
                         </div>
                         <div class="edit-panel-actions">
@@ -160,7 +160,7 @@ $currentNavKey = 'edit_m3u';
                             <h3>Canais disponíveis <span id="editAvailableCount">0</span></h3>
                             <div class="dual-list-container">
                                 <div class="dual-list" id="editAvailableList">
-                                    <p class="empty-state small">Nenhum canal disponível para este grupo.</p>
+                                    <p class="empty-state small">Nenhum canal disponível para esta categoria.</p>
                                 </div>
                                 <div class="pagination pagination-compact" id="editAvailablePagination" hidden></div>
                             </div>

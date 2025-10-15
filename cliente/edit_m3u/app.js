@@ -1,5 +1,5 @@
 (() => {
-    const UNGROUPED_LABEL = 'Sem grupo';
+    const UNGROUPED_LABEL = 'Sem categoria';
     const DEFAULT_PAGE_SIZE = 10;
     const PAGINATION_KEYS = ['groups', 'selected', 'editAvailable', 'editSelected'];
 
@@ -714,8 +714,8 @@
 
         if (!filtered.length) {
             const message = available.length
-                ? 'Nenhum grupo encontrado para este filtro.'
-                : 'Todos os grupos foram selecionados.';
+                ? 'Nenhuma categoria encontrada para este filtro.'
+                : 'Todas as Categorias foram selecionadas.';
             groupsList.innerHTML = `<p class="empty-state">${message}</p>`;
             renderPaginationControls(groupsPagination, { currentPage: 1, totalPages: 0, totalItems: 0 });
             return;
@@ -748,7 +748,7 @@
 
     function renderSelected(groups) {
         if (!state.selectedGroups.size) {
-            selectedGroupsList.innerHTML = '<p class="empty-state">Escolha grupos à esquerda para incluí-los aqui.</p>';
+            selectedGroupsList.innerHTML = '<p class="empty-state">Escolha Categorias à esquerda para incluí-las aqui.</p>';
             renderPaginationControls(selectedPagination, { currentPage: 1, totalPages: 0, totalItems: 0 });
             return;
         }
@@ -759,7 +759,7 @@
             .map((name) => lookup.get(name));
 
         if (!ordered.length) {
-            selectedGroupsList.innerHTML = '<p class="empty-state">Escolha grupos à esquerda para incluí-los aqui.</p>';
+            selectedGroupsList.innerHTML = '<p class="empty-state">Escolha Categorias à esquerda para incluí-las aqui.</p>';
             renderPaginationControls(selectedPagination, { currentPage: 1, totalPages: 0, totalItems: 0 });
             return;
         }
@@ -872,10 +872,10 @@
         const available = channels.filter((channel) => excludedSet.has(channel.uid));
 
         const displayName = channels.find((channel) => (channel.group || '').trim())?.group?.trim() || normalized;
-        editModalTitle.textContent = `Editar grupo: ${displayName}`;
+        editModalTitle.textContent = `Editar categoria: ${displayName}`;
         editModalSubtitle.textContent = channels.length
             ? `${selected.length} de ${channels.length} canais serão exportados.`
-            : 'Este grupo não possui canais.';
+            : 'Esta categoria não possui canais.';
 
         editSelectedCount.textContent = String(selected.length);
         editAvailableCount.textContent = String(available.length);
@@ -889,7 +889,7 @@
 
         editAvailableList.innerHTML = availablePagination.totalItems
             ? availablePagination.items.map((channel) => createDualItem(channel, 'restore-channel')).join('')
-            : '<p class="empty-state small">Nenhum canal disponível para este grupo.</p>';
+            : '<p class="empty-state small">Nenhum canal disponível para esta categoria.</p>';
 
         renderPaginationControls(editSelectedPagination, selectedPagination);
         renderPaginationControls(editAvailablePagination, availablePagination);
