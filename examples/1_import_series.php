@@ -52,7 +52,7 @@ function normalizaChave(string $s): string {
 function getStreamTypeByUrl(string $url): ?array {
     if (stripos($url, "/series/") !== false) {
         return [
-            'type'          => 5, // ATENÇÃO ! Não esta sendo usado no codigo esses parametros retornados!
+            'type'          => 5, // ATENÇÃO! Não está sendo usado no código esses parâmetros retornados!
             'category_type' => 'series',
             'direct_source' => 1
         ];
