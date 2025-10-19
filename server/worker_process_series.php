@@ -545,21 +545,6 @@ function markEpisodeInCache(array &$episodeCache, int $seriesId, int $season, in
     $episodeCache[$seriesId][$season][$episode] = true;
 }
 
-function streamSourceExists(PDOStatement $stmt, array &$streamCache, string $streamSource): bool
-{
-    if (array_key_exists($streamSource, $streamCache)) {
-        return $streamCache[$streamSource];
-    }
-
-    $stmt->execute([':source' => $streamSource]);
-    $exists = $stmt->fetchColumn() !== false;
-    $stmt->closeCursor();
-
-    $streamCache[$streamSource] = $exists;
-
-    return $exists;
-}
-
 /**
  * Pré-carrega as fontes já existentes para evitar consultas repetidas durante a análise da playlist.
  * Isso troca diversas consultas "IN" em blocos por uma leitura sequencial única e aproveita o
@@ -747,7 +732,6 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $seriesCache = loadExistingSeriesCache($pdo);
 
     $loadEpisodesStmt = $pdo->prepare('SELECT season_num, episode_num FROM streams_episodes WHERE series_id = :series_id');
-    $checkStreamSourceStmt = $pdo->prepare('SELECT 1 FROM streams WHERE type = 5 AND stream_source = :source LIMIT 1');
 
     $insertSeriesStmt = $pdo->prepare('
         INSERT INTO streams_series (
@@ -894,10 +878,10 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             }
 
             if (!array_key_exists($streamSource, $streamCache)) {
-                $streamCache[$streamSource] = streamSourceExists($checkStreamSourceStmt, $streamCache, $streamSource);
+                $streamCache[$streamSource] = false;
             }
 
-            if ($streamCache[$streamSource]) {
+            if ($streamCache[$streamSource] === true) {
                 $totalSkipped++;
                 markEpisodeInCache($episodeCache, $seriesId, $seasonNumber, $episodeNumber);
                 continue;
