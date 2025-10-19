@@ -65,7 +65,6 @@ set_time_limit(0);
 
 const SUPPORTED_TARGET_CONTAINERS = ['mp4', 'mkv', 'avi', 'mpg', 'flv', '3gp', 'm4v', 'wmv', 'mov', 'ts'];
 const WATCH_REFRESH_INSERT_CHUNK_SIZE = 1000;
-const STREAM_SOURCE_LOOKUP_CHUNK_SIZE = 1600;
 
 if (!function_exists('importador_resolve_batch_size')) {
     function importador_resolve_batch_size(string $envKey, int $default): int
@@ -546,54 +545,58 @@ function markEpisodeInCache(array &$episodeCache, int $seriesId, int $season, in
     $episodeCache[$seriesId][$season][$episode] = true;
 }
 
-function streamSourceExists(PDOStatement $stmt, array &$streamCache, string $streamSource): bool
+/**
+ * Pré-carrega as fontes já existentes para evitar consultas repetidas durante a análise da playlist.
+ * Isso troca diversas consultas "IN" em blocos por uma leitura sequencial única e aproveita o
+ * cache PHP para responder rapidamente se uma URL já foi importada.
+ */
+function loadExistingSeriesStreamCache(PDO $pdo): array
 {
-    if (array_key_exists($streamSource, $streamCache)) {
-        return $streamCache[$streamSource];
-    }
+    $cache = [];
 
-    $stmt->execute([':source' => $streamSource]);
-    $exists = $stmt->fetchColumn() !== false;
-    $stmt->closeCursor();
-
-    $streamCache[$streamSource] = $exists;
-
-    return $exists;
-}
-
-function hydrateStreamCache(PDO $pdo, array &$pendingStreamSources, array &$streamCache): void
-{
-    if (empty($pendingStreamSources)) {
-        return;
-    }
-
-    $pendingKeys = array_keys($pendingStreamSources);
-    $pendingStreamSources = [];
-
-    foreach (array_chunk($pendingKeys, STREAM_SOURCE_LOOKUP_CHUNK_SIZE) as $chunk) {
-        if (empty($chunk)) {
-            continue;
-        }
-
-        $placeholders = implode(',', array_fill(0, count($chunk), '?'));
-        $sql = 'SELECT stream_source FROM streams WHERE type = 5 AND stream_source IN (' . $placeholders . ')';
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($chunk);
-
+    $stmt = $pdo->query('SELECT stream_source FROM streams WHERE type = 5');
+    if ($stmt !== false) {
         while (($source = $stmt->fetch(PDO::FETCH_COLUMN)) !== false) {
             if (is_string($source) && $source !== '') {
-                $streamCache[$source] = true;
+                $cache[$source] = true;
             }
         }
 
         $stmt->closeCursor();
-
-        foreach ($chunk as $sourceKey) {
-            if (!isset($streamCache[$sourceKey])) {
-                $streamCache[$sourceKey] = false;
-            }
-        }
     }
+
+    return $cache;
+}
+
+/**
+ * Pré-carrega as séries existentes para evitar SELECTs repetidos na hora de decidir
+ * se precisamos criar um novo registro em streams_series. Com isso, o worker
+ * consegue responder a duplicidades diretamente do cache em memória.
+ */
+function loadExistingSeriesCache(PDO $pdo): array
+{
+    $cache = [];
+
+    $stmt = $pdo->query('SELECT id, title, year FROM streams_series');
+    if ($stmt === false) {
+        return $cache;
+    }
+
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $title = isset($row['title']) ? (string) $row['title'] : '';
+        $yearValue = isset($row['year']) ? (int) $row['year'] : null;
+        if ($yearValue !== null && $yearValue <= 0) {
+            $yearValue = null;
+        }
+
+        $yearKey = $yearValue !== null ? (string) $yearValue : '';
+        $key = normalizaChave($title . '|' . $yearKey);
+        $cache[$key] = isset($row['id']) ? (int) $row['id'] : 0;
+    }
+
+    $stmt->closeCursor();
+
+    return $cache;
 }
 
 function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
@@ -684,8 +687,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
     $categoryCache = [];
     $seriesCache = [];
     $episodeCache = [];
-    $streamCache = [];
-    $pendingStreamSources = [];
+    $streamCache = loadExistingSeriesStreamCache($pdo);
 
     foreach (extractSeriesEntries($fullPath) as $entry) {
         if (($entry['episode'] ?? '') === '') {
@@ -709,23 +711,16 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
         $totalEntries++;
 
-        if (!array_key_exists($encoded, $streamCache) && !isset($pendingStreamSources[$encoded])) {
-            $pendingStreamSources[$encoded] = true;
-            if (count($pendingStreamSources) >= STREAM_SOURCE_LOOKUP_CHUNK_SIZE) {
-                hydrateStreamCache($pdo, $pendingStreamSources, $streamCache);
-            }
+        if (!array_key_exists($encoded, $streamCache)) {
+            $streamCache[$encoded] = false;
         }
     }
-
-    hydrateStreamCache($pdo, $pendingStreamSources, $streamCache);
 
     if ($totalEntries === 0) {
         updateJob($adminPdo, $jobId, ['progress' => 95, 'message' => 'Nenhum episódio válido encontrado. Finalizando...']);
     } else {
         updateJob($adminPdo, $jobId, ['progress' => 10, 'message' => 'Iniciando importação de ' . formatBrazilianNumber($totalEntries) . ' episódios...']);
     }
-
-    unset($pendingStreamSources);
 
     $categoryStmt = $pdo->query('SELECT id, category_name FROM streams_categories WHERE category_type = "series"');
     while ($row = $categoryStmt->fetch(PDO::FETCH_ASSOC)) {
@@ -734,20 +729,9 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
         $categoryCache[$key] = (int) $row['id'];
     }
 
-    $seriesStmt = $pdo->query('SELECT id, title, year FROM streams_series');
-    while ($row = $seriesStmt->fetch(PDO::FETCH_ASSOC)) {
-        $title = $row['title'] ?? '';
-        $yearValue = isset($row['year']) ? (int) $row['year'] : null;
-        if ($yearValue <= 0) {
-            $yearValue = null;
-        }
-        $yearKey = $yearValue !== null ? (string) $yearValue : '';
-        $key = normalizaChave($title . '|' . $yearKey);
-        $seriesCache[$key] = (int) $row['id'];
-    }
+    $seriesCache = loadExistingSeriesCache($pdo);
 
     $loadEpisodesStmt = $pdo->prepare('SELECT season_num, episode_num FROM streams_episodes WHERE series_id = :series_id');
-    $checkStreamSourceStmt = $pdo->prepare('SELECT 1 FROM streams WHERE type = 5 AND stream_source = :source LIMIT 1');
 
     $insertSeriesStmt = $pdo->prepare('
         INSERT INTO streams_series (
@@ -894,10 +878,10 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             }
 
             if (!array_key_exists($streamSource, $streamCache)) {
-                $streamCache[$streamSource] = streamSourceExists($checkStreamSourceStmt, $streamCache, $streamSource);
+                $streamCache[$streamSource] = false;
             }
 
-            if ($streamCache[$streamSource]) {
+            if ($streamCache[$streamSource] === true) {
                 $totalSkipped++;
                 markEpisodeInCache($episodeCache, $seriesId, $seasonNumber, $episodeNumber);
                 continue;
