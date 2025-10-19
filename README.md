@@ -39,7 +39,7 @@ Cada worker valida o tipo do job antes de iniciar o processamento.
 
 ## 📝 Requisitos
 
-- Servidor com **PHP 7.4+**
+- Servidor com **PHP 8.0+** (utilizamos funções nativas como `str_contains`, introduzidas a partir do PHP 8)
 - Banco de dados **MySQL/MariaDB**
 - Acesso ao **XUI.ONE**
 
