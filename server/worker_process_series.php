@@ -211,6 +211,43 @@ function determineTargetContainer(string $url): string
     return 'mp4';
 }
 
+function normalizeStreamSourceKey(string $url): ?string
+{
+    $trimmed = trim($url);
+    return $trimmed === '' ? null : $trimmed;
+}
+
+/**
+ * @return list<string>
+ */
+function extractStreamSourceKeys(string $streamSource): array
+{
+    $keys = [];
+
+    $decoded = json_decode($streamSource, true);
+    if (is_array($decoded)) {
+        foreach ($decoded as $value) {
+            if (!is_string($value)) {
+                continue;
+            }
+
+            $key = normalizeStreamSourceKey($value);
+            if ($key === null) {
+                continue;
+            }
+
+            $keys[$key] = true;
+        }
+    } else {
+        $key = normalizeStreamSourceKey($streamSource);
+        if ($key !== null) {
+            $keys[$key] = true;
+        }
+    }
+
+    return array_keys($keys);
+}
+
 /**
  * @return Generator<int, array{url: string, tvg_logo: string, group_title: string, episode: string}>
  */
@@ -557,8 +594,12 @@ function loadExistingSeriesStreamCache(PDO $pdo): array
     $stmt = $pdo->query('SELECT stream_source FROM streams WHERE type = 5');
     if ($stmt !== false) {
         while (($source = $stmt->fetch(PDO::FETCH_COLUMN)) !== false) {
-            if (is_string($source) && $source !== '') {
-                $cache[$source] = true;
+            if (!is_string($source) || $source === '') {
+                continue;
+            }
+
+            foreach (extractStreamSourceKeys($source) as $key) {
+                $cache[$key] = true;
             }
         }
 
@@ -704,15 +745,15 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             continue;
         }
 
-        $encoded = json_encode([$url], JSON_UNESCAPED_SLASHES);
-        if (!is_string($encoded) || $encoded === '') {
+        $cacheKey = normalizeStreamSourceKey($url);
+        if ($cacheKey === null) {
             continue;
         }
 
         $totalEntries++;
 
-        if (!array_key_exists($encoded, $streamCache)) {
-            $streamCache[$encoded] = false;
+        if (!array_key_exists($cacheKey, $streamCache)) {
+            $streamCache[$cacheKey] = false;
         }
     }
 
@@ -820,6 +861,11 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
             continue;
         }
 
+        $cacheKey = normalizeStreamSourceKey($url);
+        if ($cacheKey === null) {
+            continue;
+        }
+
         $streamSource = json_encode([$url], JSON_UNESCAPED_SLASHES);
         if (!is_string($streamSource) || $streamSource === '') {
             continue;
@@ -877,11 +923,11 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
                 continue;
             }
 
-            if (!array_key_exists($streamSource, $streamCache)) {
-                $streamCache[$streamSource] = false;
+            if (!array_key_exists($cacheKey, $streamCache)) {
+                $streamCache[$cacheKey] = false;
             }
 
-            if ($streamCache[$streamSource] === true) {
+            if ($streamCache[$cacheKey] === true) {
                 $totalSkipped++;
                 markEpisodeInCache($episodeCache, $seriesId, $seasonNumber, $episodeNumber);
                 continue;
@@ -913,7 +959,7 @@ function processJob(PDO $adminPdo, array $job, int $streamTimeout): array
 
             $streamId = (int) $pdo->lastInsertId();
             $newEpisodeStreamIds[$streamId] = true;
-            $streamCache[$streamSource] = true;
+            $streamCache[$cacheKey] = true;
 
             $insertEpisodeStmt->execute([
                 ':season' => $seasonNumber,
